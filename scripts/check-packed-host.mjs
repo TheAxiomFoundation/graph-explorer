@@ -39,7 +39,7 @@ const built = await Bun.build({
 assert.ok(built.success, built.logs.map(String).join('\n'));
 assert.ok(built.metafile);
 const inputs = Object.keys(built.metafile.inputs);
-assert.ok(inputs.some(input => input.includes('node_modules/@axiom-foundation/graph-explorer/dist/react/')));
+assert.ok(inputs.some(input => input.includes('node_modules/@axiom-foundation/orrery/dist/react/')));
 assert.ok(inputs.some(input => input.includes('node_modules/react/cjs/react.production.min.js')));
 for (const input of inputs) assert.ok(resolve(root, input).startsWith(root + sep), 'Build escaped installed consumer: ' + input);
 try { new Script(await readFile('host.bundle.js', 'utf8'), { filename: 'packed-react18-host.js' }); }
@@ -56,10 +56,10 @@ export async function checkPackedHost({ root, consumer, runDirectory }) {
   try {
     report.stage = 'build installed host fixture';
     const source = (await readFile(join(root, 'examples/locate.tsx'), 'utf8'))
-      .replaceAll("'../src/react'", "'@axiom-foundation/graph-explorer/react'")
-      .replaceAll("'../src/core'", "'@axiom-foundation/graph-explorer'")
+      .replaceAll("'../src/react'", "'@axiom-foundation/orrery/react'")
+      .replaceAll("'../src/core'", "'@axiom-foundation/orrery'")
       .replace("import '@xyflow/react/dist/style.css';\n", '')
-      .replace("'../src/react/style.css'", "'@axiom-foundation/graph-explorer/style.css'");
+      .replace("'../src/react/style.css'", "'@axiom-foundation/orrery/style.css'");
     assert.ok(!source.includes('../src/'), 'The browser fixture must import only public installed package entries');
     const originalHtml = await readFile(join(root, 'examples/locate.html'), 'utf8');
     assert.ok(originalHtml.includes('<script type="module" src="./locate.tsx"></script>'));

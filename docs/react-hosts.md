@@ -137,9 +137,9 @@ This React 18-compatible example uses synthetic records and explicitly exports t
 ```tsx
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { parseGraphDocument, type GraphLocation } from '@axiom-foundation/graph-explorer';
-import { GraphExplorer, type GraphHostContext, type GraphNodeRenderContext } from '@axiom-foundation/graph-explorer/react';
-import '@axiom-foundation/graph-explorer/style.css';
+import { parseGraphDocument, type GraphLocation } from '@axiom-foundation/orrery';
+import { GraphExplorer, type GraphHostContext, type GraphNodeRenderContext } from '@axiom-foundation/orrery/react';
+import '@axiom-foundation/orrery/style.css';
 
 const snapshot = parseGraphDocument({
   schemaVersion: 'graph-explorer/v1', id: 'synthetic', title: 'Synthetic records',

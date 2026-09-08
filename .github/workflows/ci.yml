@@ -22,12 +22,16 @@ jobs:
       - run: bun test
       - run: python3 -m unittest discover -s tests -p '*_test.py'
       - run: bun run build
+      - run: bun run build:site
       - run: bun run check:dist
       - name: Install WebKit and system dependencies
         run: bunx playwright install --with-deps webkit
       - name: Test the packed package in WebKit
         run: bun run check:browser
         timeout-minutes: 10
+      - name: Test the public preview in WebKit
+        run: bun run check:site
+        timeout-minutes: 5
       - run: git diff --exit-code
       - name: Upload packed browser evidence
         if: always()
@@ -38,5 +42,7 @@ jobs:
             output/playwright/packed-*/report.json
             output/playwright/packed-*/host-report.json
             output/playwright/packed-*/*.png
+            output/playwright/site-*/report.json
+            output/playwright/site-*/*.png
           if-no-files-found: ignore
           retention-days: 14

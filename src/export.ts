@@ -67,7 +67,7 @@ export function renderOfflineHtml(input: OfflineHtmlInput): OfflineHtmlResult {
   if (!nonempty(input.assets.javascript) || typeof input.assets.css !== 'string') throw new Error('Standalone viewer assets are missing; build the package before exporting');
   const css = input.assets.css.replace(/<\/style/gi, '<\\/style');
   const javascript = input.assets.javascript.replace(/<\/script/gi, '<\\/script');
-  const html = `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${htmlEscape(document.title)} · Graph explorer</title>\n<style>${css}</style></head><body><div id="root"></div>\n<script id="graph-explorer-data" type="application/json">${jsonEscape({ document, baseline, assessments, documentSha256 })}</script>\n<script>${javascript}</script></body></html>\n`;
+  const html = `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${htmlEscape(document.title)} · Orrery</title>\n<style>${css}</style></head><body><div id="root"></div>\n<script id="graph-explorer-data" type="application/json">${jsonEscape({ document, baseline, assessments, documentSha256 })}</script>\n<script>${javascript}</script></body></html>\n`;
   return { html, documentSha256, nodes: document.nodes.length, edges: document.edges.length, bytes: Buffer.byteLength(html), offline: true };
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { exportGraphHtml } from './export.js';
 
-const usage = 'Usage: graph-explorer --input graph.json --output report.html [--baseline before.json] [--assessment assessment.json]';
+const usage = 'Usage: orrery --input graph.json --output report.html [--baseline before.json] [--assessment assessment.json]';
 const args = process.argv.slice(2);
 try {
   if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {

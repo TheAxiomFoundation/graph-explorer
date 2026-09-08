@@ -435,7 +435,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   };
 
   return <div className={`ge-explorer ge-pane-${mobilePane}`} ref={shellRef} style={{ '--ge-instance': generatedId } as CSSProperties}>
-    <header className="ge-header"><div className="ge-brand"><span className="ge-mark" aria-hidden="true">⌘</span><div><div className="ge-eyebrow">Graph explorer</div><h1>{document.title}</h1></div></div>
+    <header className="ge-header"><div className="ge-brand"><span className="ge-mark" aria-hidden="true">◎</span><div><div className="ge-eyebrow">Orrery</div><h1>{document.title}</h1></div></div>
       <div className="ge-document-meta"><span>{document.nodes.length} records · {document.edges.length} relationships</span>{revisions?.length ? <label className="ge-revision-picker">Revision <select aria-label="Snapshot revision" value={currentRevisionId ?? ''} onChange={event => onRevisionChange?.(event.target.value)} disabled={!onRevisionChange}><option value="" disabled>Select revision</option>{revisions.map(revision => <option key={revision.id} value={revision.id}>{revision.label}</option>)}</select></label> : document.revision && <code title={document.revision}>{document.revision.length > 24 ? `${document.revision.slice(0, 21)}…` : document.revision}</code>}</div>
     </header>
     <nav className="ge-mobile-nav" aria-label="Workspace panels">{(['index', 'graph', 'inspector'] as const).map(pane => <button type="button" key={pane} aria-pressed={mobilePane === pane} onClick={() => setMobilePane(pane)}>{pane === 'index' ? 'Browse' : pane === 'inspector' ? 'Inspect' : 'Graph'}</button>)}</nav>

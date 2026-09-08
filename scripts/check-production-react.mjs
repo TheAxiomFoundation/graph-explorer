@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 // Run in a fresh Node process after building, so React selects its production
 // runtime before the package is imported. Import-only checks miss jsxDEV calls.
 assert.equal(process.env.NODE_ENV, 'production', 'Run with NODE_ENV=production node scripts/check-production-react.mjs');
-const [{ createElement }, { renderToString }, { GraphExplorer }, { parseGraphDocument }] = await Promise.all([
+const [{ createElement }, { renderToString }, { GraphExplorer, Orrery }, { parseGraphDocument }] = await Promise.all([
   import('react'),
   import('react-dom/server'),
-  import('@axiom-foundation/graph-explorer/react'),
-  import('@axiom-foundation/graph-explorer'),
+  import('@axiom-foundation/orrery/react'),
+  import('@axiom-foundation/orrery'),
 ]);
+
+assert.equal(Orrery, GraphExplorer, 'The Orrery product export must retain the GraphExplorer implementation');
 
 // Deliberately synthetic presentation fixture: no domain evaluation or evidence.
 const document = parseGraphDocument({
