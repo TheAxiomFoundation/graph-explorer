@@ -1,0 +1,27 @@
+{
+  "name": "@axiom-foundation/graph-explorer",
+  "version": "0.1.0",
+  "description": "An embeddable graph explorer for dependencies, evidence, agent activity, and Receipt provenance.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "files": ["dist", "README.md", "LICENSE", "scripts/receipt_bridge.py"],
+  "exports": {
+    ".": { "types": "./dist/core/index.d.ts", "import": "./dist/core/index.js" },
+    "./react": { "types": "./dist/react/index.d.ts", "import": "./dist/react/index.js" },
+    "./adapters/*": { "types": "./dist/adapters/*.d.ts", "import": "./dist/adapters/*.js" },
+    "./style.css": "./dist/react/style.css"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests",
+    "build": "bun scripts/build.ts",
+    "export": "bun scripts/export.ts"
+  },
+  "peerDependencies": { "react": ">=18 <20", "react-dom": ">=18 <20" },
+  "dependencies": { "@xyflow/react": "12.11.6", "@dagrejs/dagre": "3.1.1" },
+  "devDependencies": {
+    "react": "19.2.8", "react-dom": "19.2.8", "vite": "8.2.2",
+    "typescript": "7.0.2", "@types/react": "^19", "@types/react-dom": "^19", "@types/bun": "^1"
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+output/
+*.tgz
+__pycache__/
+.pytest_cache/
+.venv/
