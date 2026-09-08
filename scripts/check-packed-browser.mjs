@@ -222,9 +222,9 @@ console.log(JSON.stringify({ react: version, productionRender: 'passed' }));
   report.checks.push('Installed public React entry renders under production React18');
   await context.close(); context = undefined;
   await browser.close(); browser = undefined; page = undefined;
-  report.stage = 'host Locate API';
+  report.stage = 'host Locate and index navigation';
   report.hostEmbedding = await checkPackedHost({ root, consumer, runDirectory });
-  report.checks.push('Installed React18 host Locate works without navigation, including hidden mobile panes and rejected stale/excluded targets');
+  report.checks.push('Installed React18 host Locate and index selection work through mobile resizing and equivalent controlled filters without unintended navigation');
   report.status = 'passed';
   report.stage = 'complete';
 } catch (error) {

@@ -56,4 +56,51 @@ function App() {
   </div>;
 }
 
-createRoot(globalThis.document.getElementById('root')!).render(<App />);
+// A separate, small index scene exercises normal URL-reader behavior: each
+// external navigation supplies a newly allocated but equivalent kinds array.
+const indexDocument: GraphDocument = {
+  schemaVersion: 'graph-explorer/v1', id: 'index-selection', title: 'Index selection fixture',
+  nodes: Array.from({ length: 250 }, (_, index) => ({
+    id: `n${index}`, label: `Record ${index}`, kind: index % 2 ? 'detail' : 'record',
+  })),
+  edges: [],
+};
+const indexCanvas = (node: { id: string }) => node.id === 'n0';
+
+function IndexApp({ deepLink }: { deepLink: boolean }) {
+  const [location, setLocation] = useState<GraphLocation>({
+    selectedId: deepLink ? 'n249' : 'n0', selectedType: 'node', kinds: [],
+  });
+  const [callbacks, setCallbacks] = useState(0);
+  const [updates, setUpdates] = useState(0);
+  const update = (patch: Partial<GraphLocation>) => {
+    setLocation(current => ({ ...current, ...patch }));
+    setUpdates(count => count + 1);
+  };
+  return <div className="locate-fixture">
+    <section className="host-controls" aria-label="External index controls">
+      <button type="button" onClick={() => update({ selectedId: 'n249', kinds: [] })}>Select last with fresh filter</button>
+      <button type="button" onClick={() => update({ selectedId: 'n149', kinds: [] })}>Select middle with fresh filter</button>
+      <button type="button" onClick={() => update({ kinds: [...location.kinds ?? []], depth: (location.depth ?? 1) + 1 })}>Copy filter and change depth</button>
+      <button type="button" onClick={() => update({ kinds: undefined })}>Omit filter</button>
+      <button type="button" onClick={() => update({ kinds: [] })}>Empty filter</button>
+      <button type="button" onClick={() => update({ kinds: ['record', 'detail'] })}>Both kinds</button>
+      <button type="button" onClick={() => update({ kinds: ['detail', 'record', 'detail'] })}>Equivalent reordered kinds</button>
+      <button type="button" onClick={() => update({ kinds: ['record'] })}>Record kind only</button>
+      <div className="host-status">
+        <output aria-label="Index location">{JSON.stringify(location)}</output>
+        <output aria-label="Index callbacks">{callbacks}</output>
+        <output aria-label="Index updates">{updates}</output>
+      </div>
+    </section>
+    <div className="locate-viewer"><GraphExplorer document={indexDocument} location={location}
+      onLocationChange={next => { setLocation(next); setCallbacks(count => count + 1); }}
+      canvasNodeFilter={indexCanvas} searchFiltersCanvas={false}
+    /></div>
+  </div>;
+}
+
+const fixture = globalThis.location.hash;
+createRoot(globalThis.document.getElementById('root')!).render(
+  fixture.startsWith('#index') ? <IndexApp deepLink={fixture === '#index-deep'} /> : <App />,
+);

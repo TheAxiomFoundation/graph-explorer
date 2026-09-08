@@ -25,18 +25,23 @@ export function RecordIndex({ records, selectedId, changes, onSelect, revealKey 
   const listRef = useRef<HTMLDivElement>(null);
   const pendingReveal = useRef(true);
   const pendingReset = useRef(true);
+  const revealFrame = useRef<number | undefined>(undefined);
   useEffect(() => { if (current !== state) setState(current); }, [current, state]);
   useEffect(() => { pendingReset.current = true; }, [records, page]);
   useEffect(() => { pendingReveal.current = true; }, [records, page, selectedId]);
   const revealPending = useCallback(() => {
-    const list = listRef.current;
-    // Selection can happen while mobile Browse is hidden. Reveal it when that
-    // pane returns; a pane switch alone preserves the user's existing scroll.
-    if (!pendingReveal.current || !list?.clientHeight) return;
-    if (pendingReset.current) list.scrollTop = 0;
-    list.querySelector<HTMLElement>('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
-    pendingReveal.current = false;
-    pendingReset.current = false;
+    if (!pendingReveal.current || revealFrame.current !== undefined) return;
+    // The parent's selection effect may hide Browse after this child's effect.
+    // Wait for that update before consuming the reveal at mobile row sizes.
+    revealFrame.current = requestAnimationFrame(() => {
+      revealFrame.current = undefined;
+      const list = listRef.current;
+      if (!pendingReveal.current || !list?.clientHeight) return;
+      if (pendingReset.current) list.scrollTop = 0;
+      list.querySelector<HTMLElement>('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
+      pendingReveal.current = false;
+      pendingReset.current = false;
+    });
   }, []);
   useEffect(revealPending, [records, page, selectedId, revealKey, revealPending]);
   useEffect(() => {
@@ -46,7 +51,11 @@ export function RecordIndex({ records, selectedId, changes, onSelect, revealKey 
     // mobilePane change. Consume any pending selection when it becomes visible.
     const observer = new ResizeObserver(revealPending);
     observer.observe(list);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (revealFrame.current !== undefined) cancelAnimationFrame(revealFrame.current);
+      revealFrame.current = undefined;
+    };
   }, [revealPending]);
   const changePage = (next: number) => setState({ records, selectedId, page: Math.min(pages - 1, Math.max(0, next)) });
   return <>

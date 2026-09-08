@@ -199,6 +199,113 @@ export async function checkPackedHost({ root, consumer, runDirectory }) {
     await unchanged();
     assert.deepEqual({ camera: await camera(), pane: await pane() }, staleBefore, 'A stale callback must reject even a target retained in the current scene');
     report.checks.push('A remembered callback from the previous projection returns false without moving the camera or changing the pane');
+
+    const loadIndex = async (deep = false) => {
+      await page.goto('about:blank');
+      await page.goto(report.url + (deep ? '#index-deep' : '#index'), { waitUntil: 'load' });
+      await page.getByRole('heading', { name: 'Index selection fixture', exact: true }).waitFor();
+      await expectCentered('n0');
+    };
+    const indexState = () => withDeadline(page.evaluate(() => ({
+      page: document.querySelector('.ge-index-pages span')?.textContent,
+      selected: document.querySelector('.ge-index-list [aria-current="true"] small')?.textContent ?? null,
+      rows: document.querySelectorAll('.ge-index-list > button').length,
+      scroll: document.querySelector('.ge-index-list')?.scrollTop,
+      camera: document.querySelector('.react-flow__viewport')?.getAttribute('style'),
+      canvasNodes: document.querySelectorAll('.react-flow__node').length,
+    })), 2_000, 'Index state');
+    const expectIndexPage = async (label, selected) => {
+      await page.waitForFunction(({ label, selected }) =>
+        document.querySelector('.ge-index-pages span')?.textContent === label
+        && (document.querySelector('.ge-index-list [aria-current="true"] small')?.textContent ?? null) === selected,
+      { label, selected });
+      const state = await indexState();
+      assert.ok(state.rows <= 100);
+      assert.equal(state.canvasNodes, 1, 'Index paging must retain the business canvas projection');
+    };
+    const externalIndexUpdate = async label => {
+      const previous = Number(await readOutput('Index updates'));
+      await page.getByRole('button', { name: label, exact: true }).click();
+      await page.waitForFunction(expected => Number(document.querySelector('output[aria-label="Index updates"]')?.textContent) === expected, previous + 1);
+      await settle();
+      assert.equal(await readOutput('Index callbacks'), '0', 'External index updates must not emit navigation callbacks');
+    };
+    const setIndexScroll = async () => {
+      // Let the page-change reveal finish before simulating a later user scroll.
+      await settle();
+      await withDeadline(page.evaluate(() => { document.querySelector('.ge-index-list').scrollTop = 150; }), 2_000, 'Index scroll');
+      await settle();
+      assert.equal((await indexState()).scroll, 150);
+    };
+
+    report.stage = 'equivalent kind filters reveal a changed desktop selection';
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await loadIndex();
+    await expectIndexPage('1–100 of 250 records', 'n0');
+    const indexCamera = await camera();
+    await externalIndexUpdate('Select last with fresh filter');
+    await expectIndexPage('201–250 of 250 records', 'n249');
+    assert.equal(await camera(), indexCamera);
+    assert.equal(page.url(), report.url + '#index');
+    await page.screenshot({ path: join(runDirectory, 'index-desktop.png'), fullPage: true });
+
+    report.stage = 'equivalent filters retain manual pagination and scroll';
+    await page.getByRole('button', { name: 'Previous records', exact: true }).click();
+    await expectIndexPage('101–200 of 250 records', null);
+    await setIndexScroll();
+    let beforeIndex = await indexState();
+    for (const label of ['Copy filter and change depth', 'Omit filter', 'Empty filter']) {
+      await externalIndexUpdate(label);
+      assert.deepEqual(await indexState(), beforeIndex, `${label} must preserve index page, scroll, and camera`);
+    }
+    assert.deepEqual(JSON.parse(await readOutput('Index location')).kinds, [], 'The raw host filter remains unchanged');
+    await externalIndexUpdate('Both kinds');
+    await expectIndexPage('1–100 of 250 records', null);
+    await page.getByRole('button', { name: 'Next records', exact: true }).click();
+    await expectIndexPage('101–200 of 250 records', null);
+    await setIndexScroll();
+    beforeIndex = await indexState();
+    await externalIndexUpdate('Equivalent reordered kinds');
+    assert.deepEqual(await indexState(), beforeIndex, 'Order and duplicate kinds must not reset the index');
+    assert.deepEqual(JSON.parse(await readOutput('Index location')).kinds, ['detail', 'record', 'detail']);
+    await externalIndexUpdate('Record kind only');
+    await expectIndexPage('1–100 of 125 records', null);
+    assert.equal(await camera(), indexCamera, 'A real index-only filter change must preserve the canvas camera');
+    report.checks.push('Equivalent fresh, omitted/empty, reordered, and duplicate kind filters preserve selected-row paging and manual scroll; real filter changes reset page one');
+
+    report.stage = 'equivalent filters reveal selection after hidden mobile Browse';
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loadIndex();
+    await expectPane('graph');
+    const mobileIndexCamera = await camera();
+    await externalIndexUpdate('Select last with fresh filter');
+    await expectPane('inspector');
+    await page.getByRole('button', { name: 'Browse', exact: true }).click();
+    await expectIndexPage('201–250 of 250 records', 'n249');
+    await page.waitForFunction(() => {
+      const list = document.querySelector('.ge-index-list')?.getBoundingClientRect();
+      const selected = document.querySelector('.ge-index-list [aria-current="true"]')?.getBoundingClientRect();
+      return list && selected && list.height > 0 && selected.top >= list.top - 1 && selected.bottom <= list.bottom + 1;
+    });
+    assert.equal(await camera(), mobileIndexCamera);
+    await page.screenshot({ path: join(runDirectory, 'index-mobile.png'), fullPage: true });
+    await externalIndexUpdate('Select middle with fresh filter');
+    await expectPane('inspector');
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await expectIndexPage('101–200 of 250 records', 'n149');
+    await page.waitForFunction(() => {
+      const list = document.querySelector('.ge-index-list')?.getBoundingClientRect();
+      const selected = document.querySelector('.ge-index-list [aria-current="true"]')?.getBoundingClientRect();
+      return list && selected && list.height > 0 && selected.top >= list.top - 1 && selected.bottom <= list.bottom + 1;
+    });
+    assert.equal(await readOutput('Index callbacks'), '0');
+    report.checks.push('Changed selection with an equivalent fresh filter reveals its page after mobile Browse returns or widens to desktop');
+
+    report.stage = 'initial deep index selection';
+    await loadIndex(true);
+    await expectIndexPage('201–250 of 250 records', 'n249');
+    assert.equal(await readOutput('Index callbacks'), '0');
+    report.checks.push('Initial controlled deep links retain the selected later index page');
     assert.deepEqual(report.pageErrors, []);
     assert.deepEqual(report.console, []);
     assert.ok(report.requests.every(url => [...assets.keys()].some(path => url === origin + path)), 'The host must load only its three served assets');
@@ -214,6 +321,9 @@ export async function checkPackedHost({ root, consumer, runDirectory }) {
         canvas: document.querySelector('.ge-canvas')?.getBoundingClientRect().toJSON(),
         viewport: document.querySelector('.react-flow__viewport')?.getAttribute('style'),
         outputs: [...document.querySelectorAll('output')].map(output => ({ label: output.getAttribute('aria-label'), text: output.textContent })),
+        index: { page: document.querySelector('.ge-index-pages span')?.textContent,
+          selected: document.querySelector('.ge-index-list [aria-current="true"] small')?.textContent,
+          rows: document.querySelectorAll('.ge-index-list > button').length },
         nodes: [...document.querySelectorAll('.react-flow__node')].map(node => ({ id: node.getAttribute('data-id'), visibility: getComputedStyle(node).visibility, rect: node.getBoundingClientRect().toJSON() })),
       })), 2_000, 'Host failure diagnostics').catch(() => undefined);
       await page.screenshot({ path: join(runDirectory, 'host-failure.png'), fullPage: true, timeout: 5_000 }).catch(() => {});

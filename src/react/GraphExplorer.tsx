@@ -298,7 +298,11 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     return () => window.removeEventListener('keydown', handleKey);
   }, [update]);
 
-  const matching = useMemo(() => matchingRecords(document, location), [document, location.query, location.kinds]);
+  // Kind filters are sets. URL readers commonly allocate an equivalent array
+  // on each navigation; that must not create a new index result set and reset
+  // pagination before a changed selection can reveal its record.
+  const kindFilterKey = JSON.stringify([...new Set(location.kinds ?? [])].sort());
+  const matching = useMemo(() => matchingRecords(document, location), [document, location.query, kindFilterKey]);
   const canvasMatching = searchFiltersCanvas ? matching : document.nodes;
   const visibleNodes = useMemo(() => canvasRecords(document, location, canvasMatching, childCounts, { canvasNodeFilter, searchFiltersCanvas }),
     [document, canvasMatching, childCounts, location.collapsedIds, location.focusId, depth, showContainment, location.direction, canvasNodeFilter, searchFiltersCanvas]);
