@@ -11,9 +11,19 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const site = join(root, 'site-dist');
 await mkdir(join(root, 'output/playwright'), { recursive: true });
 const output = await mkdtemp(join(root, 'output/playwright/site-'));
-const builtFiles = ['index.html', 'offline-shell.json', ...(await readdir(join(site, 'assets'))).sort().map(name => `assets/${name}`)];
+const filesUnder = async directory => {
+  const entries = await readdir(join(site, directory), { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const name = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) files.push(...await filesUnder(name));
+    else { assert.ok(entry.isFile(), `Published asset is not a regular file: ${name}`); files.push(name); }
+  }
+  return files.sort();
+};
+const builtFiles = ['index.html', 'offline-shell.json', ...await filesUnder('assets'), ...await filesUnder('artifacts')];
 const assetSha256 = Object.fromEntries(await Promise.all(builtFiles.map(async name => [name, createHash('sha256').update(await readFile(join(site, name))).digest('hex')])));
-const report = { builtAssetSha256: assetSha256, checks: [], errors: [], warnings: [], externalRequests: [] };
+const report = { builtAssetSha256: assetSha256, checks: [], errors: [], errorContexts: [], warnings: [], externalRequests: [] };
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, 'http://localhost');
@@ -21,7 +31,7 @@ const server = createServer(async (request, response) => {
     const relative = decodeURIComponent(url.pathname.slice('/orrery/'.length)) || 'index.html';
     const file = resolve(site, relative);
     if (!file.startsWith(`${site}/`)) { response.writeHead(403); response.end(); return; }
-    response.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.json') ? 'application/json' : 'text/html');
+    response.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.json') ? 'application/json' : /\.(txt|yaml)$/.test(file) ? 'text/plain' : 'text/html');
     response.end(await readFile(file));
   } catch { response.writeHead(404); response.end(); }
 });
@@ -30,7 +40,7 @@ const url = `http://127.0.0.1:${server.address().port}/orrery/`;
 const browser = await webkit.launch();
 const context = await browser.newContext({ viewport: { width: 1600, height: 1050 }, acceptDownloads: true });
 function monitor(page) {
-  page.on('pageerror', error => report.errors.push(error.message));
+  page.on('pageerror', error => { report.errors.push(error.message); report.errorContexts.push({ message: error.message, url: page.url(), afterCheck: report.checks.at(-1) }); });
   page.on('console', message => { if (message.type() === 'warning') report.warnings.push(message.text()); if (message.type() === 'error') report.errors.push(message.text()); });
   page.on('request', request => { if (/^https?:/.test(request.url()) && !request.url().startsWith(url)) report.externalRequests.push(request.url()); });
 }
@@ -45,20 +55,116 @@ const canvasReady = async page => {
   });
   await settled(page);
 };
+const downloadGraph = async (page, name) => {
+  const event = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download JSON' }).click();
+  const file = join(output, name); await (await event).saveAs(file);
+  return JSON.parse(await readFile(file, 'utf8'));
+};
+const checkCapturedReferences = async graph => {
+  const sources = [...graph.nodes, ...graph.edges].flatMap(record => record.sources ?? []);
+  const artifacts = graph.artifacts ?? [];
+  assert.ok(artifacts.length > 0, 'The Mars graph must expose actual captured artifacts');
+  for (const artifact of artifacts) {
+    assert.equal(typeof artifact.uri, 'string', `Missing artifact URL: ${artifact.id}`);
+    assert.ok(new URL(artifact.uri, url).pathname.startsWith('/orrery/artifacts/mars/'), `Artifact is not a published capture: ${artifact.uri}`);
+    assert.match(artifact.sha256 ?? '', /^[a-f0-9]{64}$/);
+  }
+  const refs = [...artifacts.map(artifact => ({ url: artifact.uri, sha256: artifact.sha256 })), ...sources];
+  let checked = 0;
+  for (const ref of refs) {
+    if (!ref.url) continue;
+    const parsed = new URL(ref.url, url);
+    if (!parsed.pathname.startsWith('/orrery/artifacts/mars/')) continue;
+    const name = parsed.pathname.slice('/orrery/'.length);
+    assert.match(ref.sha256 ?? '', /^[a-f0-9]{64}$/, `Missing declared digest: ${ref.url}`);
+    assert.equal(assetSha256[name], ref.sha256, `Graph capture declaration differs from built bytes: ${name}`);
+    const response = await fetch(new URL(name, url));
+    assert.equal(response.status, 200, `Capture is not served: ${name}`);
+    assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'), ref.sha256);
+    checked += 1;
+  }
+  assert.ok(checked >= artifacts.length);
+  return checked;
+};
 
 try {
   const page = await context.newPage(); monitor(page);
   await page.goto(url); await canvasReady(page);
   assert.equal(await page.title(), 'Orrery, by Axiom — See the system. Trace the work.');
+  assert.equal(await page.locator('#example-picker').inputValue(), 'mars');
+  assert.equal(await page.locator('.answer-question h2').innerText(), 'How long would a message take to reach Mars?');
+  assert.match(await page.locator('.answer-question p').innerText(), /One-way light travel estimate/);
+  assert.equal(await page.locator('.answer-approximation').innerText(), 'About');
+  assert.equal(await page.locator('.answer-value').innerText(), '15 min 4 sec');
+  assert.match(await page.locator('.answer-date').innerText(), /2026/);
+  assert.doesNotMatch(await page.locator('.example-caveat summary').innerText(), /review issues/);
+  await page.screenshot({ path: join(output, 'desktop.png'), fullPage: true, animations: 'disabled' });
+  await page.getByRole('tab', { name: 'History', exact: true }).click();
+  assert.equal(await page.locator('.ge-inspector-body h3').innerText(), 'Changed');
+  assert.match(await page.locator('.ge-inspector-body').innerText(), /Previous record/);
+  await page.getByRole('tab', { name: 'Record', exact: true }).click();
+  const marsGraph = await downloadGraph(page, 'mars-current.json');
+  assert.equal(marsGraph.nodes.length, 10);
+  assert.equal(marsGraph.edges.length, 11);
+  assert.equal(marsGraph.artifacts.length, 19);
+  assert.ok(marsGraph.activities.length > 0);
+  const referencesChecked = await checkCapturedReferences(marsGraph);
+  const firstAnswer = await page.locator('.answer-value').innerText();
+  const firstSelection = await page.locator('.ge-inspector-heading .ge-record-id').innerText();
+  mark(`Mars is the neutral default with an approximate one-way answer, ${marsGraph.nodes.length} nodes and ${referencesChecked} matching captured-byte references`);
+
+  await page.locator('.recorded-dates button[data-example="mars-comparison"]').focus();
+  await page.keyboard.press('Enter'); await canvasReady(page);
+  assert.equal(await page.locator('.recorded-dates button[data-example="mars-comparison"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.locator('#example-picker').inputValue(), 'mars-comparison');
+  assert.equal(await page.locator('.answer-value').innerText(), '5 min 21 sec');
+  assert.match(await page.locator('.answer-date').innerText(), /2025/);
+  assert.equal(await page.locator('.ge-inspector-heading .ge-record-id').innerText(), firstSelection);
+  const comparisonGraph = await downloadGraph(page, 'mars-comparison.json');
+  assert.equal(comparisonGraph.nodes.length, 10);
+  assert.equal(comparisonGraph.edges.length, 11);
+  assert.equal(comparisonGraph.artifacts.length, 19);
+  await checkCapturedReferences(comparisonGraph);
+  assert.deepEqual(comparisonGraph.nodes.map(node => node.id), marsGraph.nodes.map(node => node.id));
+  await page.goBack(); await canvasReady(page);
+  assert.equal(await page.locator('#example-picker').inputValue(), 'mars');
+  assert.equal(await page.locator('.answer-value').innerText(), firstAnswer);
+  mark('Two date epochs change the answer, preserve native IDs and show revision History; Back restores the first date');
+
+  await page.selectOption('#example-picker', 'thesis'); await canvasReady(page);
   assert.match(await page.locator('.example-caveat summary').innerText(), /source-review issues remain/);
   assert.match(await page.locator('.ge-document-meta').innerText(), /44 records.*87 relationships/s);
   assert.equal(await page.locator('.ge-index-list > button').count(), 44);
-  await page.screenshot({ path: join(output, 'desktop.png'), fullPage: true, animations: 'disabled' });
+  await page.screenshot({ path: join(output, 'desktop-thesis.png'), fullPage: true, animations: 'disabled' });
   mark('Public Thesis graph: native 44/87 records, visible unresolved-review label, bounded index, relative deployment path');
 
   await page.getByRole('button', { name: /Read the unresolved review/ }).click();
   await page.waitForFunction(() => document.querySelector('.ge-inspector-heading h2')?.textContent?.includes('Revised review'));
   const reviewUrl = page.url();
+  const legacy = await context.newPage(); monitor(legacy);
+  await legacy.goto(`${url}${new URL(reviewUrl).hash}`); await canvasReady(legacy);
+  assert.equal(await legacy.locator('#example-picker').inputValue(), 'thesis');
+  assert.equal(new URL(legacy.url()).searchParams.get('example'), 'thesis');
+  assert.equal(new URL(legacy.url()).hash, new URL(reviewUrl).hash);
+  assert.match(await legacy.locator('.ge-inspector-heading h2').innerText(), /Revised review/);
+  await legacy.reload(); await canvasReady(legacy);
+  assert.equal(await legacy.locator('#example-picker').inputValue(), 'thesis');
+  const thesisGraph = await downloadGraph(legacy, 'thesis-legacy.json');
+  const edgeLocation = new URLSearchParams({ selectedId: thesisGraph.edges[0].id, selectedType: 'edge' });
+  await legacy.goto(`${url}#${edgeLocation}`); await canvasReady(legacy);
+  assert.equal(await legacy.locator('#example-picker').inputValue(), 'thesis');
+  assert.equal(await legacy.locator('.ge-inspector-heading .ge-record-id').innerText(), thesisGraph.edges[0].id);
+  mark('Legacy Thesis node and edge hashes infer the correct dataset and canonicalize without losing selection');
+  await legacy.goto(`${url}#query=2024&depth=2&showContainment=false`); await canvasReady(legacy);
+  assert.equal(await legacy.locator('#example-picker').inputValue(), 'thesis');
+  assert.equal(await legacy.getByRole('searchbox', { name: /Find a record/ }).inputValue(), '2024');
+  assert.equal(new URL(legacy.url()).searchParams.get('example'), 'thesis');
+  await legacy.selectOption('#example-picker', 'mars'); await canvasReady(legacy);
+  await legacy.goBack(); await canvasReady(legacy);
+  assert.equal(await legacy.locator('#example-picker').inputValue(), 'thesis');
+  assert.equal(await legacy.getByRole('searchbox', { name: /Find a record/ }).inputValue(), '2024');
+  mark('Legacy search/view-only hashes retain the previous Thesis default, including Back after switching to Mars');
   await page.getByRole('button', { name: /Compare the two attempts/ }).click();
   await page.waitForFunction(() => document.querySelector('.ge-inspector-heading h2')?.textContent?.includes('Original → revised comparison'));
   await page.goBack();
@@ -218,21 +324,21 @@ try {
 
   await page.reload(); await canvasReady(page);
   assert.match(await page.locator('.status-message').innerText(), /Open your graph JSON again/);
-  assert.equal(new URL(page.url()).searchParams.get('example'), 'thesis');
+  assert.equal(new URL(page.url()).searchParams.get('example'), 'mars');
   assert.equal(new URLSearchParams(new URL(page.url()).hash.slice(1)).get('selectedId'), await page.locator('.ge-inspector-heading .ge-record-id').innerText());
   await page.getByLabel('Open a local graph JSON file').setInputFiles({ name: 'after-reload.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(secondGraph)) });
   await page.waitForFunction(() => document.querySelector('.ge-brand h1')?.textContent === 'A different local graph');
   await page.goBack();
   await page.waitForFunction(() => document.querySelector('.status-message')?.textContent?.includes('Open your graph JSON again'));
-  assert.match(await page.locator('.ge-document-meta').innerText(), /44 records/);
+  assert.match(await page.locator('.ge-document-meta').innerText(), new RegExp(`${marsGraph.nodes.length} records`));
   assert.notEqual(await page.locator('.ge-brand h1').innerText(), 'A different local graph');
-  assert.equal(new URL(page.url()).searchParams.get('example'), 'thesis');
+  assert.equal(new URL(page.url()).searchParams.get('example'), 'mars');
   mark('After reload and Back, expired local links show the reminder and a canonical URL matching the public fallback');
 
   const directLocal = await context.newPage(); monitor(directLocal);
   await directLocal.goto(`${url}?example=local#selectedId=unknown-private-id`); await canvasReady(directLocal);
   assert.match(await directLocal.locator('.status-message').innerText(), /Open your graph JSON again/);
-  assert.equal(new URL(directLocal.url()).searchParams.get('example'), 'thesis');
+  assert.equal(new URL(directLocal.url()).searchParams.get('example'), 'mars');
   assert.equal(new URLSearchParams(new URL(directLocal.url()).hash.slice(1)).get('selectedId'), await directLocal.locator('.ge-inspector-heading .ge-record-id').innerText());
   assert.equal(await directLocal.evaluate(() => window.history.state.orreryLocalId), undefined);
   mark('A direct unknown local URL replaces stale navigation with the rendered public example while keeping the re-open reminder');
@@ -251,8 +357,8 @@ try {
   const historyLength = await retention.evaluate(() => window.history.length);
   await retention.goBack();
   await retention.waitForFunction(() => document.querySelector('.status-message')?.textContent?.includes('Open your graph JSON again'));
-  assert.equal(new URL(retention.url()).searchParams.get('example'), 'thesis');
-  assert.match(await retention.locator('.ge-document-meta').innerText(), /44 records/);
+  assert.equal(new URL(retention.url()).searchParams.get('example'), 'mars');
+  assert.match(await retention.locator('.ge-document-meta').innerText(), new RegExp(`${marsGraph.nodes.length} records`));
   assert.equal(await retention.evaluate(() => window.history.length), historyLength);
   await retention.goForward();
   await retention.waitForFunction(() => document.querySelector('.ge-brand h1')?.textContent === 'Retained import 1');
@@ -261,12 +367,32 @@ try {
 
   const mobile = await context.newPage(); monitor(mobile);
   await mobile.setViewportSize({ width: 390, height: 844 });
+  await mobile.emulateMedia({ reducedMotion: 'reduce' });
   await mobile.goto(url); await canvasReady(mobile);
   assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  assert.equal(await mobile.locator('#example-picker').inputValue(), 'mars');
+  assert.equal(await mobile.locator('.answer-value').innerText(), firstAnswer);
+  assert.equal(await mobile.locator('.hero').evaluate(element => getComputedStyle(element).animationName), 'none');
+  await mobile.locator('.walkthrough button[data-selected-id="mars-signal/answer"]').click();
+  await mobile.waitForFunction(() => document.querySelector('.ge-explorer')?.classList.contains('ge-pane-inspector'));
+  await mobile.getByRole('button', { name: 'Graph', exact: true }).click(); await canvasReady(mobile);
+  const sameAnswerUrl = mobile.url();
+  await mobile.locator('.walkthrough button[data-selected-id="mars-signal/answer"]').click();
+  await mobile.waitForFunction(() => document.querySelector('.ge-explorer')?.classList.contains('ge-pane-inspector'));
+  assert.equal(mobile.url(), sameAnswerUrl);
+  await mobile.locator('.recorded-dates button[data-example="mars-comparison"]').click(); await canvasReady(mobile);
+  assert.notEqual(await mobile.locator('.answer-value').innerText(), firstAnswer);
+  await mobile.locator('.walkthrough button[data-selected-id="mars-signal/horizons"]').click();
+  await mobile.waitForFunction(() => document.querySelector('.ge-explorer')?.classList.contains('ge-pane-inspector'));
+  assert.equal(await mobile.locator('.ge-inspector-heading .ge-record-id').innerText(), 'mars-signal/horizons');
+  await mobile.getByRole('button', { name: 'Graph', exact: true }).click(); await canvasReady(mobile);
+  await mobile.screenshot({ path: join(output, 'mobile.png'), fullPage: true, animations: 'disabled' });
+  mark('Mars mobile question/answer/date controls and source inspection work without overflow and respect reduced motion');
+  await mobile.selectOption('#example-picker', 'thesis'); await canvasReady(mobile);
   await mobile.getByRole('button', { name: /Read the unresolved review/ }).click();
   await mobile.waitForFunction(() => document.querySelector('.ge-explorer')?.classList.contains('ge-pane-inspector'));
   await mobile.getByRole('button', { name: 'Graph', exact: true }).click(); await canvasReady(mobile);
-  await mobile.screenshot({ path: join(output, 'mobile.png'), fullPage: true, animations: 'disabled' });
+  await mobile.screenshot({ path: join(output, 'mobile-thesis.png'), fullPage: true, animations: 'disabled' });
   await mobile.getByRole('button', { name: 'Browse', exact: true }).click();
   await mobile.getByRole('searchbox', { name: /Find a record/ }).fill('2024');
   assert.ok(await mobile.locator('.ge-index-list > button').count() > 0);

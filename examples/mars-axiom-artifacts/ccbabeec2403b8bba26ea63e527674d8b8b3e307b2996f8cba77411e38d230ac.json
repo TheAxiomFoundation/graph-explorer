@@ -1,0 +1,126 @@
+{
+  "assurance": "development_unsigned",
+  "context": {
+    "artifact_sha256": "0eafa44efacc19445483a511137eeb2a9f79c14c38acd0c12871390dfef49d7c",
+    "bundle_sha256": "bb9c08f0701709f9af624c37388b4254f5fcd457dd5123c4e2d6736d301ed27b",
+    "engine": {
+      "artifact_format_version": 2,
+      "dependency_lock_sha256": "e556fd5ef7f298f7be1ca68c20f765af6f667682329766a556300a0417797628",
+      "execution_host_sha256": "1a2b75ad270523e7dd31d1f32e582853ebad839c678aab76acbbe288866f81a8",
+      "repository": "https://github.com/TheAxiomFoundation/axiom-rules-engine",
+      "revision": "d142c645917817cf590e036fb99f99b2d4780e1a",
+      "version": "0.2.2"
+    },
+    "mode": "explain",
+    "queries": [
+      {
+        "entity_id": "mars-range:2025-01-16T00:00:00Z",
+        "outputs": [
+          "zz:policies/orrery/mars-light-time#fixed_position_one_way_seconds",
+          "zz:policies/orrery/mars-light-time#fixed_position_one_way_minutes"
+        ],
+        "period": {
+          "end": "2025-01-16",
+          "name": "Day",
+          "period_kind": "custom",
+          "start": "2025-01-16"
+        }
+      }
+    ],
+    "scenario": {
+      "pins": []
+    },
+    "scenario_sha256": "bc4b6052640553c4fb3ea970d4ff057f54a3205e2e6eab63270bdcb07e17296d",
+    "wire_version": "axiom/execution/v0"
+  },
+  "context_sha256": "f099847a4d3e7a985962e4b6c1b0f36b72440e0c1b3b36610c95ac19640ca1ae",
+  "format": "axiom/execution-receipt/v0",
+  "result": {
+    "metadata": {
+      "actual_mode": "explain",
+      "fallback_reason": null,
+      "requested_mode": "explain"
+    },
+    "results": [
+      {
+        "entity_id": "mars-range:2025-01-16T00:00:00Z",
+        "outputs": {
+          "zz:policies/orrery/mars-light-time#fixed_position_one_way_minutes": {
+            "dtype": "decimal",
+            "id": "zz:policies/orrery/mars-light-time#fixed_position_one_way_minutes",
+            "kind": "scalar",
+            "name": "fixed_position_one_way_minutes",
+            "unit": "min",
+            "value": {
+              "kind": "decimal",
+              "value": "5.35257570350611744431097952"
+            }
+          },
+          "zz:policies/orrery/mars-light-time#fixed_position_one_way_seconds": {
+            "dtype": "decimal",
+            "id": "zz:policies/orrery/mars-light-time#fixed_position_one_way_seconds",
+            "kind": "scalar",
+            "name": "fixed_position_one_way_seconds",
+            "unit": "s",
+            "value": {
+              "kind": "decimal",
+              "value": "321.1545422103670466586587712"
+            }
+          }
+        },
+        "period": {
+          "end": "2025-01-16",
+          "name": "Day",
+          "period_kind": "custom",
+          "start": "2025-01-16"
+        },
+        "trace": {
+          "zz:policies/orrery/mars-light-time#fixed_position_one_way_minutes": {
+            "dependencies": [
+              "zz:policies/orrery/mars-light-time#fixed_position_one_way_seconds"
+            ],
+            "dtype": "decimal",
+            "entity_id": "mars-range:2025-01-16T00:00:00Z",
+            "executed_expression": "(zz:policies/orrery/mars-light-time#fixed_position_one_way_seconds / 60)",
+            "id": "zz:policies/orrery/mars-light-time#fixed_position_one_way_minutes",
+            "kind": "scalar",
+            "name": "fixed_position_one_way_minutes",
+            "unit": "min",
+            "value": {
+              "kind": "decimal",
+              "value": "5.35257570350611744431097952"
+            }
+          },
+          "zz:policies/orrery/mars-light-time#fixed_position_one_way_seconds": {
+            "dependencies": [],
+            "dtype": "decimal",
+            "entity_id": "mars-range:2025-01-16T00:00:00Z",
+            "executed_expression": "(input(\"range_km\") / zz:policies/orrery/mars-light-time#speed_of_light_km_per_second[0])",
+            "id": "zz:policies/orrery/mars-light-time#fixed_position_one_way_seconds",
+            "kind": "scalar",
+            "name": "fixed_position_one_way_seconds",
+            "parameter_reads": [
+              {
+                "effective_from": "1900-01-01",
+                "id": "zz:policies/orrery/mars-light-time#speed_of_light_km_per_second",
+                "index": 0,
+                "name": "speed_of_light_km_per_second",
+                "parameter": "zz:policies/orrery/mars-light-time#speed_of_light_km_per_second",
+                "unit": "km/s",
+                "value": {
+                  "kind": "decimal",
+                  "value": "299792.458"
+                }
+              }
+            ],
+            "unit": "s",
+            "value": {
+              "kind": "decimal",
+              "value": "321.1545422103670466586587712"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

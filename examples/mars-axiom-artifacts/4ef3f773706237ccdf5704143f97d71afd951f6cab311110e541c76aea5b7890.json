@@ -1,0 +1,31 @@
+{
+  "assurance": "development_unsigned",
+  "engine": {
+    "artifact_format_version": 2,
+    "dependency_lock_sha256": "e556fd5ef7f298f7be1ca68c20f765af6f667682329766a556300a0417797628",
+    "execution_host_sha256": "1a2b75ad270523e7dd31d1f32e582853ebad839c678aab76acbbe288866f81a8",
+    "repository": "https://github.com/TheAxiomFoundation/axiom-rules-engine",
+    "revision": "d142c645917817cf590e036fb99f99b2d4780e1a",
+    "version": "0.2.2"
+  },
+  "format": "axiom/capabilities/v0",
+  "supported": [
+    "explicit_module_closure",
+    "expected_bundle_digest",
+    "offline_rebuild_verification",
+    "native_rule_pins",
+    "complete_native_traces",
+    "strict_request_fields",
+    "valid_intervals"
+  ],
+  "unsupported": [
+    "knowledge_time_selection",
+    "signed_admission",
+    "legal_validation",
+    "static_scalar_type_soundness",
+    "checked_arithmetic_guarantee",
+    "hostile_program_sandbox",
+    "durable_jobs",
+    "publication"
+  ]
+}

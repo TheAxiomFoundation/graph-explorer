@@ -1,0 +1,135 @@
+{
+  "schemaVersion": "orrery-mars-signal-check/v1",
+  "status": "passed",
+  "startedAt": "2026-09-08T23:14:53.989316Z",
+  "endedAt": "2026-09-08T23:14:53.994032Z",
+  "scope": "Local byte identity, source-to-input transcription and numerical consistency; not authentication, independent astronomy validation or outgoing-signal propagation",
+  "method": "Python Decimal precision50 with vector norm, independent arithmetic crosscheck and recorded native Axiom/Horizons comparisons",
+  "pythonVersion": "3.14.6",
+  "generator": {
+    "sourcePath": "examples/mars-signal-check.py",
+    "extension": "txt",
+    "sha256": "be7bf7bf0b6a4c42b546a3fd6ba50bbb09700055f2629f45bc49e3eef1434b13",
+    "byteLength": 6630,
+    "role": "Executed numerical and byte consistency checks"
+  },
+  "checkedArtifactCount": 18,
+  "checkedArtifacts": [
+    {
+      "sourcePath": "examples/mars-signal-artifacts/ecbe0b7692c98c42a9a116439fe2987be180aa7b5a2429cfbe29c45a5bfc432f.json",
+      "sha256": "ecbe0b7692c98c42a9a116439fe2987be180aa7b5a2429cfbe29c45a5bfc432f"
+    },
+    {
+      "sourcePath": "examples/mars-signal-artifacts/fed181554ca8921567c334d17bcf4c15b8a2057e7094ac02acf11af5bcddd092.json",
+      "sha256": "fed181554ca8921567c334d17bcf4c15b8a2057e7094ac02acf11af5bcddd092"
+    },
+    {
+      "sourcePath": "examples/mars-signal-artifacts/6fa541b390713c5eb4d3932a0620af7749dcd9304ee0c8224dedc33c63c90f44.txt",
+      "sha256": "6fa541b390713c5eb4d3932a0620af7749dcd9304ee0c8224dedc33c63c90f44"
+    },
+    {
+      "sourcePath": "examples/mars-axiom-artifacts/4ef3f773706237ccdf5704143f97d71afd951f6cab311110e541c76aea5b7890.json",
+      "sha256": "4ef3f773706237ccdf5704143f97d71afd951f6cab311110e541c76aea5b7890"
+    },
+    {
+      "sourcePath": "examples/mars-axiom.rulespec.yaml",
+      "sha256": "cc51c2ebbfa50fee82b75124b7f15f5c8cba20b74438fbaa855a8a8fd6ec8491"
+    },
+    {
+      "sourcePath": "examples/mars-axiom-build.json",
+      "sha256": "58b93cebc274ba60344c2b551dd9f38b6eba356cad2e2716d2ec946911f88d20"
+    },
+    {
+      "sourcePath": "examples/mars-axiom-artifacts/1387bdeb75a86cdbb16f70e35aad862797a1404daad3769d78fad00a88c7e4ae.json",
+      "sha256": "1387bdeb75a86cdbb16f70e35aad862797a1404daad3769d78fad00a88c7e4ae"
+    },
+    {
+      "sourcePath": "examples/mars-axiom-artifacts/7d9454507578227730c3f5cf561929a9a9173dcf97723994976bd5f1383d9bef.json",
+      "sha256": "7d9454507578227730c3f5cf561929a9a9173dcf97723994976bd5f1383d9bef"
+    },
+    {
+      "sourcePath": "examples/mars-axiom-artifacts/0eafa44efacc19445483a511137eeb2a9f79c14c38acd0c12871390dfef49d7c.json",
+      "sha256": "0eafa44efacc19445483a511137eeb2a9f79c14c38acd0c12871390dfef49d7c"
+    },
+    {
+      "sourcePath": "examples/mars-axiom-artifacts/48cc4376fb8db4ae45c09be7ea08ba5ac5b6ca53cd04440766639be93da32ca3.json",
+      "sha256": "48cc4376fb8db4ae45c09be7ea08ba5ac5b6ca53cd04440766639be93da32ca3"
+    },
+    {
+      "sourcePath": "examples/mars-axiom-artifacts/0883bb4217e19f696e41291110618d7f900d3792ca282eb52f91d9b377ce1459.json",
+      "sha256": "0883bb4217e19f696e41291110618d7f900d3792ca282eb52f91d9b377ce1459"
+    },
+    {
+      "sourcePath": "examples/mars-axiom-artifacts/acb54d103c64f7833f0297a386bcb30f448a0cb89644c5d6ffcd03658bc6e727.json",
+      "sha256": "acb54d103c64f7833f0297a386bcb30f448a0cb89644c5d6ffcd03658bc6e727"
+    },
+    {
+      "sourcePath": "examples/mars-axiom-artifacts/ccbabeec2403b8bba26ea63e527674d8b8b3e307b2996f8cba77411e38d230ac.json",
+      "sha256": "ccbabeec2403b8bba26ea63e527674d8b8b3e307b2996f8cba77411e38d230ac"
+    },
+    {
+      "sourcePath": "examples/mars-signal-horizons.json",
+      "sha256": "519e922a995d0983ca8877be8d5da5b3f8bced996300471afe5ebef49bb52360"
+    },
+    {
+      "sourcePath": "examples/mars-axiom-run.json",
+      "sha256": "3d20e13997856f0df7414a7e384e555c6e420e8d4241b5419aac9c7d7c5a4b7e"
+    },
+    {
+      "sourcePath": "examples/mars-signal-capture.py",
+      "sha256": "522c137f096eb58140bec50ee6609d8d1634a57f6c74e8207ad93c151267d82d"
+    },
+    {
+      "sourcePath": "examples/mars-axiom-capture.py",
+      "sha256": "c424d8e1b3431fe3e86147f2c85e0a5712041a7daf048a9c86809f0c214edfba"
+    },
+    {
+      "sourcePath": "examples/mars-signal-check.py",
+      "sha256": "be7bf7bf0b6a4c42b546a3fd6ba50bbb09700055f2629f45bc49e3eef1434b13"
+    }
+  ],
+  "checks": [
+    {
+      "epoch": "2026-09-08T00:00:00Z",
+      "status": "passed",
+      "residuals": {
+        "nativeSecondsMinusRangeOverC": "-2.221329997567850756272E-26",
+        "nativeMinutesTimes60MinusSeconds": "2.0E-26",
+        "nativeSecondsMinusHorizonsLT": "-1.599799892231E-13",
+        "vectorNormMinusRangeKm": "3.27330015762536957729402789426301E-9"
+      },
+      "absoluteTolerances": {
+        "nativeSecondsMinusRangeOverC": "1e-9",
+        "nativeMinutesTimes60MinusSeconds": "1e-9",
+        "nativeSecondsMinusHorizonsLT": "1e-9",
+        "vectorNormMinusRangeKm": "1e-6"
+      },
+      "nativeSeconds": "903.6219712073797400200107769",
+      "nativeMinutes": "15.060366186789662333666846282",
+      "sourceSha256": "ecbe0b7692c98c42a9a116439fe2987be180aa7b5a2429cfbe29c45a5bfc432f",
+      "requestSha256": "48cc4376fb8db4ae45c09be7ea08ba5ac5b6ca53cd04440766639be93da32ca3",
+      "responseSha256": "0883bb4217e19f696e41291110618d7f900d3792ca282eb52f91d9b377ce1459"
+    },
+    {
+      "epoch": "2025-01-16T00:00:00Z",
+      "status": "passed",
+      "residuals": {
+        "nativeSecondsMinusRangeOverC": "4.36171613096417522285E-27",
+        "nativeMinutesTimes60MinusSeconds": "0E-26",
+        "nativeSecondsMinusHorizonsLT": "-5.33413412288E-14",
+        "vectorNormMinusRangeKm": "1.989239484309807086422456709197148E-9"
+      },
+      "absoluteTolerances": {
+        "nativeSecondsMinusRangeOverC": "1e-9",
+        "nativeMinutesTimes60MinusSeconds": "1e-9",
+        "nativeSecondsMinusHorizonsLT": "1e-9",
+        "vectorNormMinusRangeKm": "1e-6"
+      },
+      "nativeSeconds": "321.1545422103670466586587712",
+      "nativeMinutes": "5.35257570350611744431097952",
+      "sourceSha256": "fed181554ca8921567c334d17bcf4c15b8a2057e7094ac02acf11af5bcddd092",
+      "requestSha256": "acb54d103c64f7833f0297a386bcb30f448a0cb89644c5d6ffcd03658bc6e727",
+      "responseSha256": "ccbabeec2403b8bba26ea63e527674d8b8b3e307b2996f8cba77411e38d230ac"
+    }
+  ]
+}
