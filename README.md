@@ -6,7 +6,7 @@ The shared package owns navigation and presentation. Axiom, Microcosm, PlanGraph
 
 ## Run locally
 
-Requires Bun. From this repository:
+Requires Bun and Node 20+ with npm. CI uses Node 24. From this repository:
 
 ```sh
 bun install --frozen-lockfile
@@ -19,6 +19,25 @@ python3 -m unittest discover -s tests -p '*_test.py'
 ```
 
 The example app includes an Axiom graph projected by its existing software from a recorded compiled artifact, and a Thesis scientific-record graph created by replaying a committed source fixture through its native capture adapter. Provenance and limitations are in [examples/ADAPTERS.md](examples/ADAPTERS.md). No example calculates benefits with a substitute evaluator or represents fixture data as live evidence.
+
+### Packed browser gate
+
+After building, run the automated browser gate:
+
+```sh
+bunx playwright install webkit
+bun run check:browser
+```
+
+The gate requires only [Playwright's WebKit browser](https://playwright.dev/docs/browsers#install-browsers), using the package version pinned in this repository. On Linux, `bunx playwright install --with-deps webkit` also installs its system dependencies; CI uses this command. The gate packs the built package, installs that tarball into a fresh React 18.3.1 consumer with lifecycle scripts disabled, and uses the installed CLI to export a synthetic graph and baseline. It serves the resulting HTML on localhost and checks rendering, selection, unchecked Receipt declarations, and revision comparison. Browser errors and external asset requests fail the check. It also renders the installed React entry in a fresh production Node process.
+
+To diagnose an existing candidate or reproduce a regression, supply its immutable tarball:
+
+```sh
+bun run check:browser --tarball /absolute/path/to/package.tgz
+```
+
+Runs write `report.json` under a unique `output/playwright/packed-*` directory, with `desktop.png`, `mobile.png`, or `failure.png` when those browser captures are available. The report records the tested tarball's SHA-256 digest and, after export, the input graph and HTML digests, so results identify the exact artifact bytes. CI runs this gate after `check:dist` and retains the report and available screenshots for 14 days on success or failure. Its artifact upload includes only those evidence files; the temporary consumer and tarballs remain local to the run.
 
 ## Embed
 
@@ -80,7 +99,7 @@ Graph JSON cannot verify itself. Receipt references contain no executable config
 After building and packing this repository, install the tarball in a Node 20+ project. The installed CLI uses bundled assets and needs no Bun or source checkout:
 
 ```sh
-npm install /path/to/axiom-foundation-graph-explorer-0.4.0.tgz
+npm install /path/to/axiom-foundation-graph-explorer-0.4.1.tgz
 npx graph-explorer --input graph.json --output report.html
 ```
 

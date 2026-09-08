@@ -7,6 +7,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.12
@@ -19,4 +23,19 @@ jobs:
       - run: python3 -m unittest discover -s tests -p '*_test.py'
       - run: bun run build
       - run: bun run check:dist
+      - name: Install WebKit and system dependencies
+        run: bunx playwright install --with-deps webkit
+      - name: Test the packed package in WebKit
+        run: bun run check:browser
+        timeout-minutes: 10
       - run: git diff --exit-code
+      - name: Upload packed browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packed-browser-evidence
+          path: |
+            output/playwright/packed-*/report.json
+            output/playwright/packed-*/*.png
+          if-no-files-found: ignore
+          retention-days: 14
