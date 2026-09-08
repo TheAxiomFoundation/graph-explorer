@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph explorer navigation fixture</title>
+    <style>
+      html, body, #root { margin: 0; height: 100%; }
+      body { font: 12px/1.45 system-ui, sans-serif; color: #28392f; background: #fbfbf7; }
+      .navigation-fixture { height: 100dvh; display: flex; flex-direction: column; }
+      .navigation-controls { flex: none; padding: 10px 14px; border-bottom: 1px solid #dfe4d8; }
+      .navigation-controls p { margin: 0 0 7px; }
+      .navigation-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+      .navigation-buttons button { font: inherit; color: inherit; background: #fffffc; border: 1px solid #ccd6c5; border-radius: 4px; padding: 7px 9px; cursor: pointer; }
+      .navigation-buttons button:focus-visible { outline: 2px solid #45634e; outline-offset: 2px; }
+      .navigation-buttons button:disabled { opacity: .5; cursor: default; }
+      .navigation-buttons label { display: flex; align-items: center; gap: 4px; }
+      .navigation-status { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+      .navigation-status output { overflow-wrap: anywhere; }
+      .navigation-viewer { flex: 1; min-height: 0; }
+      .navigation-viewer .ge-explorer { min-height: 0; }
+      .navigation-inspector { display: flex; flex-direction: column; gap: 12px; }
+      .navigation-inspector output, .navigation-inspector code { overflow-wrap: anywhere; }
+      .navigation-inspector ol { padding-left: 20px; margin: 0; font-size: 11px; }
+      @media (max-width: 760px) { .navigation-controls { padding: 8px 10px; } .navigation-buttons button { min-height: 36px; } }
+    </style>
+  </head>
+  <body><div id="root"></div><script type="module" src="./navigation.tsx"></script></body>
+</html>

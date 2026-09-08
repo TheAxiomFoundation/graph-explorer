@@ -12,7 +12,7 @@ All props are optional except `document`.
 | `baseline` | `GraphDocument` | Previous snapshot for node/edge differences; does not imply revision ancestry. |
 | `location` | `GraphLocation` | Controlled navigation. The host must accept `onLocationChange` and pass the resulting state back. |
 | `initialLocation` | `GraphLocation` | Initial state for an uncontrolled viewer; subsequent changes to this prop do not replace navigation. |
-| `onLocationChange` | `(location: GraphLocation) => void` | Receives the complete next navigation state. The viewer does not update the host URL. |
+| `onLocationChange` | `(location: GraphLocation, change: GraphLocationChange) => void` | Receives complete next state and explicit intent, including reselection of the same record. Existing one-argument callbacks remain compatible. The viewer does not update the host URL. |
 | `canvasNodeFilter` | `(node: GraphNode, document: GraphDocument) => boolean` | Limits canvas records only. Excluded records remain searchable and inspectable. |
 | `searchFiltersCanvas` | `boolean` | Defaults to `true`. With `false`, both query and kind filters affect the index only. Host canvas filtering, lineage scope, and collapse still apply. |
 | `renderToolbar` | `(context: GraphHostContext) => ReactNode` | Adds controls alongside the shared fit/export controls. |
@@ -43,9 +43,13 @@ interface GraphInspectorContext {
 
 interface GraphHostContext extends GraphInspectorContext {
   location: GraphLocation;
-  setLocation: (location: GraphLocation) => void;
+  setLocation: (location: GraphLocation, change?: GraphLocationChange) => void;
   visibleNodeIds: readonly string[];
   visibleEdgeIds: readonly string[];
+}
+
+interface GraphLocationChange {
+  reason: 'select' | 'focus' | 'view';
 }
 
 interface GraphNodeRenderContext extends GraphInspectorContext {
@@ -58,6 +62,16 @@ interface GraphNodeRenderContext extends GraphInspectorContext {
 ```
 
 `setLocation` **replaces** navigation state; it does not merge a patch or accept a React state-updater function. Preserve fields explicitly: `setLocation({ ...location, query: '' })`. `focusNode(id, direction)` selects and focuses that node. Node and edge identities occupy separate namespaces, so use the matching selection function even when both records have the same ID.
+
+`onLocationChange` always receives a second argument in version 0.3.0 and later:
+
+- `select`: an explicit record/edge selection, including index, canvas, inspector, and context selection actions. Clicking an already selected record still emits this reason. Escape clears selection with the same reason.
+- `focus`: `focusNode`, double-click exploration, or Whole graph. Focusing a node also sets its selection; clearing focus with Whole graph preserves selection.
+- `view`: query, kind filter, depth, direction, containment, collapse, or reset-view changes. Context `setLocation` defaults to this reason; pass `{ reason: 'select' }` or `{ reason: 'focus' }` for those host actions. Pan, zoom, and Fit view only affect the local camera and do not emit a location callback.
+
+A host may select an exact nested field while highlighting its business ancestor. On `select`, resolve the host's selection to the explicit record even if `selectedId` is unchanged. On `view`, retain that precise host selection. Handle `focus` according to the host's exploration behavior. Metadata describes the user action, not a diff inferred from the two locations. External prop updates do not emit callbacks.
+
+On mobile, explicit selection opens Inspect and focus opens Graph. After mounting, an external controlled change to `selectedId` or its normalized node/edge type opens Inspect; an external clear opens Graph. Reflection of the viewer's latest own navigation preserves the pane chosen by its intent, including delayed reflection of focus. View-only updates do not reopen Inspect, and the initial Graph pane is preserved for initial deep links. The host must reconcile asynchronous navigation and discard stale responses. A host-only nested-field change that leaves both shared selection fields identical is not observable by the viewer; use an explicit context selection action when it also needs to open Inspect.
 
 The canvas filter is absolute: focusing a host-excluded record does not put it on the canvas. Focus may override search/kind matching, but cannot restore a collapsed descendant. Lineage is computed through the full document, including hidden intermediate records; only allowed records are drawn. Filtering does not synthesize shortcut relationships. The full index and visible canvas counts describe different scopes. These presentation controls do not redact source data.
 

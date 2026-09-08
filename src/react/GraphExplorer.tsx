@@ -23,10 +23,15 @@ export interface GraphInspectorContext {
   focusNode: (id: string, direction?: GraphLocation['direction']) => void;
 }
 
+export interface GraphLocationChange {
+  /** Explicit selection (including reselection/clear), focus, or other view state. */
+  reason: 'select' | 'focus' | 'view';
+}
+
 export interface GraphHostContext extends GraphInspectorContext {
   location: GraphLocation;
   /** Replace navigation state; use object spread when preserving existing fields. */
-  setLocation: (location: GraphLocation) => void;
+  setLocation: (location: GraphLocation, change?: GraphLocationChange) => void;
   visibleNodeIds: readonly string[];
   visibleEdgeIds: readonly string[];
 }
@@ -62,7 +67,8 @@ export interface GraphExplorerProps extends CanvasOptions {
   initialLocation?: GraphLocation;
   /** Controlled navigation lets the host preserve its own routing and Back/Forward behavior. */
   location?: GraphLocation;
-  onLocationChange?: (location: GraphLocation) => void;
+  /** Called for explicit reselection even if the selected ID is unchanged. */
+  onLocationChange?: (location: GraphLocation, change: GraphLocationChange) => void;
   renderNodeDetails?: (node: GraphNode, document: GraphDocument) => ReactNode;
   renderInspector?: (context: GraphHostContext) => ReactNode;
   renderToolbar?: (context: GraphHostContext) => ReactNode;
@@ -81,6 +87,10 @@ type CardNode = Node<CardData, 'record'>;
 type RelationEdge = Edge<{ record: GraphEdge; offset: number }, 'relation'>;
 type InspectorTab = 'record' | 'sources' | 'activity' | 'receipts' | 'history';
 const EMPTY_ASSESSMENTS: ReceiptAssessment[] = [];
+
+function selectionKey(location: GraphLocation | undefined): string {
+  return JSON.stringify(location?.selectedId ? [location.selectedId, location.selectedType ?? 'node'] : null);
+}
 
 /** Plain destinations only. Relative artifacts remain useful in offline reports. */
 function destination(value: string | undefined): string | undefined {
@@ -190,6 +200,21 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   locationRef.current = location;
   const [tab, setTab] = useState<InspectorTab>('record');
   const [mobilePane, setMobilePane] = useState<'index' | 'graph' | 'inspector'>('graph');
+  const controlledSelectionKey = selectionKey(controlledLocation);
+  const observedSelection = useRef(controlledSelectionKey);
+  const requestedSelection = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (observedSelection.current === controlledSelectionKey) return;
+    observedSelection.current = controlledSelectionKey;
+    const ownNavigation = requestedSelection.current === controlledSelectionKey;
+    requestedSelection.current = undefined;
+    // Parent reflection of focus must keep Graph open, including delayed echoes.
+    // Only a new external selection chooses Inspect; initial deep links retain
+    // the initial Graph pane, and view-only updates never reopen the inspector.
+    if (controlledLocation !== undefined && !ownNavigation) {
+      setMobilePane(controlledLocation.selectedId ? 'inspector' : 'graph');
+    }
+  }, [controlledSelectionKey, controlledLocation]);
   const depth = location.depth ?? 1;
   const showContainment = location.showContainment ?? true;
   const [ready, setReady] = useState(false);
@@ -228,16 +253,19 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     for (const edge of document.edges) if (edge.category === 'containment') { const ids = children.get(edge.source) ?? new Set(); ids.add(edge.target); children.set(edge.source, ids); }
     return children;
   }, [document]);
-  const setLocation = useCallback((next: GraphLocation) => {
+  const setLocation = useCallback((next: GraphLocation, change: GraphLocationChange = { reason: 'view' }) => {
     locationRef.current = next;
+    requestedSelection.current = controlledLocation === undefined ? undefined : selectionKey(next);
+    if (change.reason === 'select') setMobilePane(next.selectedId ? 'inspector' : 'graph');
+    if (change.reason === 'focus') setMobilePane('graph');
     if (controlledLocation === undefined) setInternalLocation(next);
-    onLocationChange?.(next);
+    onLocationChange?.(next, change);
   }, [controlledLocation, onLocationChange]);
-  const update = useCallback((patch: Partial<GraphLocation>) => {
-    setLocation({ ...locationRef.current, ...patch });
+  const update = useCallback((patch: Partial<GraphLocation>, change?: GraphLocationChange) => {
+    setLocation({ ...locationRef.current, ...patch }, change);
   }, [setLocation]);
-  const select = useCallback((id: string, type: 'node' | 'edge' = 'node') => { update({ selectedId: id, selectedType: type }); setMobilePane('inspector'); }, [update]);
-  const explore = (id: string, direction: GraphLocation['direction'] = 'both') => { update({ selectedId: id, selectedType: 'node', focusId: id, direction }); setMobilePane('graph'); };
+  const select = useCallback((id: string, type: 'node' | 'edge' = 'node') => { update({ selectedId: id, selectedType: type }, { reason: 'select' }); }, [update]);
+  const explore = (id: string, direction: GraphLocation['direction'] = 'both') => { update({ selectedId: id, selectedType: 'node', focusId: id, direction }, { reason: 'focus' }); };
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -245,7 +273,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
       const target = event.target as HTMLElement;
       const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable;
       if (event.key === '/' && !editing && !event.metaKey && !event.ctrlKey) { event.preventDefault(); setMobilePane('index'); searchRef.current?.focus(); }
-      if (event.key === 'Escape' && !editing) { update({ selectedId: undefined, selectedType: undefined }); setMobilePane('graph'); }
+      if (event.key === 'Escape' && !editing) update({ selectedId: undefined, selectedType: undefined }, { reason: 'select' });
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -358,7 +386,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
         {baseline && <details className="ge-baseline-summary"><summary>Snapshot changes <span>{changes.nodes.size + changes.edges.size + changes.removedNodes.length + changes.removedEdges.length}</span></summary><p>{changes.nodes.size} added or changed records · {changes.edges.size} added or changed relationships</p>{changes.removedNodes.map(node => <button type="button" className="ge-text-button" key={node.id} onClick={() => { select(node.id); setTab('history'); }}>Removed: {node.label}</button>)}{changes.removedEdges.map(edge => <button type="button" className="ge-text-button" key={edge.id} onClick={() => { select(edge.id, 'edge'); setTab('history'); }}>Removed: {edge.label ?? edge.kind}</button>)}</details>}
         <footer className="ge-index-footer">{document.description ?? 'Select a record to inspect its context.'}</footer>
       </aside>
-      <main className="ge-main" aria-label="Graph canvas"><div className="ge-toolbar"><div className="ge-scope"><button type="button" className={!focus ? 'is-active' : ''} onClick={() => update({ focusId: undefined })}>Whole graph</button>{focus && <span title={focus.label}>/ {focus.label}</span>}</div><div className="ge-toolbar-actions">{renderToolbar?.(context)}{exportOptions && <button type="button" disabled={exporting} aria-busy={exporting} onClick={() => { void exportProjection(); }}>{exporting ? 'Exporting…' : exportOptions.label ?? 'Export'}</button>}<button type="button" onClick={() => { void fitView({ padding: .16, maxZoom: 1, duration: 0 }); }}>Fit view</button></div></div>
+      <main className="ge-main" aria-label="Graph canvas"><div className="ge-toolbar"><div className="ge-scope"><button type="button" className={!focus ? 'is-active' : ''} onClick={() => update({ focusId: undefined }, { reason: 'focus' })}>Whole graph</button>{focus && <span title={focus.label}>/ {focus.label}</span>}</div><div className="ge-toolbar-actions">{renderToolbar?.(context)}{exportOptions && <button type="button" disabled={exporting} aria-busy={exporting} onClick={() => { void exportProjection(); }}>{exporting ? 'Exporting…' : exportOptions.label ?? 'Export'}</button>}<button type="button" onClick={() => { void fitView({ padding: .16, maxZoom: 1, duration: 0 }); }}>Fit view</button></div></div>
         {exportError && <p className="ge-export-error" role="alert">{exportError}</p>}
         <div className="ge-view-options">{focus ? <><div className="ge-direction" role="group" aria-label="Relationship direction">{(['both', 'upstream', 'downstream'] as const).map(direction => <button type="button" key={direction} aria-pressed={(location.direction ?? 'both') === direction} onClick={() => update({ direction })}>{direction === 'both' ? 'Lineage' : direction === 'upstream' ? 'Upstream' : 'Downstream'}</button>)}</div><label>Depth <select value={depth} onChange={event => update({ depth: Number(event.target.value) })}>{[1, 2, 3, 5, 10].map(value => <option key={value}>{value}</option>)}</select></label></> : <span className="ge-muted">Select to inspect · double-click to explore</span>}<label className="ge-containment"><input type="checkbox" checked={showContainment} onChange={event => update({ showContainment: event.target.checked })} />Containment</label></div>
         <div className="ge-canvas" ref={canvasRef}><ReactFlow<CardNode, RelationEdge> nodes={layout.nodes.map(node => ({ ...node, data: { ...node.data, context: { document, selectNode: context.selectNode, selectEdge: context.selectEdge, focusNode: explore }, renderContent: renderNodeContent }, selected: selectedType === 'node' && node.id === selected?.id }))} edges={layout.edges.map(edge => ({ ...edge, selected: selectedType === 'edge' && edge.id === selected?.id }))}
