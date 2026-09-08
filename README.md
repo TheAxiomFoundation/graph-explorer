@@ -40,6 +40,8 @@ The package supports React 18 and 19. `bun run build` creates JavaScript, declar
 
 Location callbacks include `{ reason: 'select' | 'focus' | 'view' }`, so a host can distinguish clicking the highlighted business record from view changes that preserve a more precise nested-field selection. Existing one-argument callbacks remain compatible. External controlled selection changes reveal the mobile inspector, while focus actions keep the graph visible.
 
+For host-only nested selections with an unchanged shared ID, `inspectorRequestKey` opens the mobile inspector without changing navigation. Large record indexes render 100 results per page while searching the complete document.
+
 Focused views center the focus at a readable scale and frame nearby connected records that fit. The remaining records and relationships stay available by panning. **Fit all** shows the complete canvas; **Focus view** returns to the readable focus. Inspection and index-only search preserve the camera, and resizing preserves its world center and zoom.
 
 `canvasNodeFilter` limits presentation while retaining the complete searchable index; `searchFiltersCanvas={false}` confines query and kind filters to that index. For an export button, `exportOptions` requires an explicit host projection and delivery callback. Delivery receives only the detached, validated document and its exact JSON, with no inherited navigation or verification state. Canvas filtering does not redact an export; see the [export contract](docs/react-hosts.md#explicit-export).
@@ -78,7 +80,7 @@ Graph JSON cannot verify itself. Receipt references contain no executable config
 After building and packing this repository, install the tarball in a Node 20+ project. The installed CLI uses bundled assets and needs no Bun or source checkout:
 
 ```sh
-npm install /path/to/axiom-foundation-graph-explorer-0.3.1.tgz
+npm install /path/to/axiom-foundation-graph-explorer-0.4.0.tgz
 npx graph-explorer --input graph.json --output report.html
 ```
 

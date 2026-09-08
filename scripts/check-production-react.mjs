@@ -153,6 +153,34 @@ assert.ok(legacyContext, 'SSR must expose the legacy callback fixture context');
 legacyContext.selectNode('index-only');
 assert.deepEqual(legacyCalls, [{ selectedId: 'index-only', selectedType: 'node' }], 'One-argument callbacks must still receive navigation state');
 
+// Large host documents retain every searchable record while bounding index DOM.
+const largeDocument = parseGraphDocument({
+  schemaVersion: 'graph-explorer/v1', id: 'large-index-ssr', title: 'Large index fixture',
+  nodes: Array.from({ length: 22_208 }, (_, index) => ({ id: `record-${index}`, label: `Record ${index}`, kind: 'fixture' })),
+  edges: [],
+});
+const indexMarkup = value => {
+  const match = value.match(/<div class="ge-index-list"[^>]*>([\s\S]*?)<\/div>/);
+  assert.ok(match, 'The production component must render the record index');
+  return match[1];
+};
+const largeHtml = renderToString(createElement(GraphExplorer, { document: largeDocument, canvasNodeFilter: () => false }));
+assert.equal((indexMarkup(largeHtml).match(/<button /g) ?? []).length, 100, 'Only one 100-record page may be mounted');
+assert.ok(largeHtml.replace(/<!--.*?-->/g, '').includes('100 of 22208 records'), 'The index must report its complete result count');
+assert.ok(largeHtml.includes('ge-pane-graph'), 'An omitted inspector request preserves the initial Graph pane');
+const lastRecordHtml = renderToString(createElement(GraphExplorer, {
+  document: largeDocument, canvasNodeFilter: () => false,
+  location: { selectedId: 'record-22207' }, inspectorRequestKey: 0,
+}));
+assert.equal((indexMarkup(lastRecordHtml).match(/<button /g) ?? []).length, 8, 'An initial far selection must reveal the bounded final page');
+assert.ok(indexMarkup(lastRecordHtml).includes('record-22207'), 'The selected final record must remain reachable');
+assert.ok(lastRecordHtml.includes('ge-pane-inspector'), 'A supplied initial request key, including zero, must open Inspect');
+const lastSearchHtml = renderToString(createElement(GraphExplorer, {
+  document: largeDocument, canvasNodeFilter: () => false, location: { query: 'record-22207' },
+}));
+assert.equal((indexMarkup(lastSearchHtml).match(/<button /g) ?? []).length, 1, 'Search must include records beyond the current page');
+assert.ok(indexMarkup(lastSearchHtml).includes('record-22207'));
+
 // React Flow measures and renders canvas nodes in the browser; this check makes
 // no claim about browser layout, effects, export clicks, or node-content hooks.
-console.log('Production React render passed: built package, selected inspector, host callbacks, and navigation intent.');
+console.log('Production React render passed: built package, selected inspector, host callbacks, navigation intent, bounded index, and initial inspector request.');

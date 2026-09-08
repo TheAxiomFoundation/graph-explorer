@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import dagre from '@dagrejs/dagre';
+import { layoutNodePositions } from './layout.js';
 import {
   Background, BaseEdge, ControlButton, Controls, Handle, MarkerType, MiniMap, Position,
   ReactFlow, ReactFlowProvider, useReactFlow,
@@ -14,6 +14,7 @@ import { isReceiptAssessment } from '../core/validate.js';
 import { prepareGraphExport } from '../core/export-projection.js';
 import { canvasRecords, matchingRecords, nodeDimensions, type CanvasOptions } from './canvas.js';
 import { frameCamera, resizeCamera, type CameraSize } from './camera.js';
+import { RecordIndex } from './RecordIndex.js';
 
 export interface GraphInspectorContext {
   document: GraphDocument;
@@ -70,6 +71,8 @@ export interface GraphExplorerProps extends CanvasOptions {
   location?: GraphLocation;
   /** Called for explicit reselection even if the selected ID is unchanged. */
   onLocationChange?: (location: GraphLocation, change: GraphLocationChange) => void;
+  /** Initial or changed supplied key opens Inspect without changing navigation. */
+  inspectorRequestKey?: string | number;
   renderNodeDetails?: (node: GraphNode, document: GraphDocument) => ReactNode;
   renderInspector?: (context: GraphHostContext) => ReactNode;
   renderToolbar?: (context: GraphHostContext) => ReactNode;
@@ -193,14 +196,14 @@ function Activity({ activity, select, document }: { activity: ActivityRecord; se
   </section>;
 }
 
-function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documentSha256, initialLocation, location: controlledLocation, onLocationChange, renderNodeDetails, renderInspector, renderToolbar, renderNodeContent, getNodeSize, canvasNodeFilter, searchFiltersCanvas = true, exportOptions, revisions, currentRevisionId, onRevisionChange }: GraphExplorerProps) {
+function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documentSha256, initialLocation, location: controlledLocation, onLocationChange, inspectorRequestKey, renderNodeDetails, renderInspector, renderToolbar, renderNodeContent, getNodeSize, canvasNodeFilter, searchFiltersCanvas = true, exportOptions, revisions, currentRevisionId, onRevisionChange }: GraphExplorerProps) {
   const generatedId = useId();
   const [internalLocation, setInternalLocation] = useState<GraphLocation>(() => initialLocation ?? {});
   const location = controlledLocation ?? internalLocation;
   const locationRef = useRef(location);
   locationRef.current = location;
   const [tab, setTab] = useState<InspectorTab>('record');
-  const [mobilePane, setMobilePane] = useState<'index' | 'graph' | 'inspector'>('graph');
+  const [mobilePane, setMobilePane] = useState<'index' | 'graph' | 'inspector'>(inspectorRequestKey === undefined ? 'graph' : 'inspector');
   const controlledSelectionKey = selectionKey(controlledLocation);
   const observedSelection = useRef(controlledSelectionKey);
   const requestedSelection = useRef<string | undefined>(undefined);
@@ -216,6 +219,14 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
       setMobilePane(controlledLocation.selectedId ? 'inspector' : 'graph');
     }
   }, [controlledSelectionKey, controlledLocation]);
+  const observedInspectorRequest = useRef(inspectorRequestKey);
+  useEffect(() => {
+    if (Object.is(observedInspectorRequest.current, inspectorRequestKey)) return;
+    observedInspectorRequest.current = inspectorRequestKey;
+    // Explicit host detail requests can retain the same shared node/edge ID.
+    // Removing the optional key does not close the user's chosen panel.
+    if (inspectorRequestKey !== undefined) setMobilePane('inspector');
+  }, [inspectorRequestKey]);
   const depth = location.depth ?? 1;
   const showContainment = location.showContainment ?? true;
   const [ready, setReady] = useState(false);
@@ -298,13 +309,10 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   // rerun Dagre; selection, content, and equivalent filters remain inexpensive.
   const positions = useMemo(() => {
     const geometry = JSON.parse(geometryKey) as { nodes: [string, number, number][]; edges: [string, string, string][] };
-    const graph = new dagre.graphlib.Graph({ multigraph: true });
-    graph.setGraph({ rankdir: 'LR', ranksep: 116, nodesep: 40, edgesep: 24, marginx: 32, marginy: 32 });
-    graph.setDefaultEdgeLabel(() => ({}));
-    for (const [id, width, height] of geometry.nodes) graph.setNode(id, { width, height });
-    for (const [id, source, target] of geometry.edges) graph.setEdge(source, target, {}, id);
-    if (geometry.nodes.length) dagre.layout(graph);
-    return new Map(geometry.nodes.map(([id]) => [id, graph.node(id)]));
+    return layoutNodePositions(
+      geometry.nodes.map(([id, width, height]) => ({ id, width, height })),
+      geometry.edges.map(([id, source, target]) => ({ id, source, target })),
+    );
   }, [geometryKey]);
   const layout = useMemo(() => {
     const nodes: CardNode[] = visibleNodes.map(record => {
@@ -405,9 +413,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
       <aside className="ge-index" aria-label="Record index"><div className="ge-index-search"><label htmlFor={`${generatedId}-search`}>Find a record <kbd>/</kbd></label><input ref={searchRef} id={`${generatedId}-search`} type="search" placeholder="Name, ID, or field…" value={location.query ?? ''} onChange={event => update({ query: event.target.value })} /></div>
         <div className="ge-kind-filter"><label htmlFor={`${generatedId}-kind`}>Record type</label><select id={`${generatedId}-kind`} value={location.kinds?.length === 1 ? location.kinds[0] : ''} onChange={event => update({ kinds: event.target.value ? [event.target.value] : [] })}><option value="">All types</option>{kinds.map(kind => <option key={kind}>{kind}</option>)}</select></div>
         <div className="ge-index-count" aria-live="polite">{matching.length} records{focus && ' · full index'}</div>
-        <div className="ge-index-list">{matching.map(node => <button type="button" key={node.id} className={selectedType === 'node' && selected?.id === node.id ? 'is-selected' : ''} aria-current={selectedType === 'node' && selected?.id === node.id ? 'true' : undefined} onClick={() => select(node.id)}>
-          <span className="ge-index-kind">{node.kind}</span><strong>{node.label}</strong><small title={node.id}>{node.id}</small>{changes.nodes.get(node.id) && <span className="ge-change">{changes.nodes.get(node.id)}</span>}
-        </button>)}{matching.length === 0 && <p className="ge-empty">No matching records.</p>}</div>
+        <RecordIndex records={matching} selectedId={selectedType === 'node' ? selected?.id : undefined} changes={changes.nodes} onSelect={select} revealKey={mobilePane} />
         {baseline && <details className="ge-baseline-summary"><summary>Snapshot changes <span>{changes.nodes.size + changes.edges.size + changes.removedNodes.length + changes.removedEdges.length}</span></summary><p>{changes.nodes.size} added or changed records · {changes.edges.size} added or changed relationships</p>{changes.removedNodes.map(node => <button type="button" className="ge-text-button" key={node.id} onClick={() => { select(node.id); setTab('history'); }}>Removed: {node.label}</button>)}{changes.removedEdges.map(edge => <button type="button" className="ge-text-button" key={edge.id} onClick={() => { select(edge.id, 'edge'); setTab('history'); }}>Removed: {edge.label ?? edge.kind}</button>)}</details>}
         <footer className="ge-index-footer">{document.description ?? 'Select a record to inspect its context.'}</footer>
       </aside>
