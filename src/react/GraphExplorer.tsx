@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import dagre from '@dagrejs/dagre';
 import {
-  Background, BaseEdge, Controls, Handle, MarkerType, MiniMap, Position,
+  Background, BaseEdge, ControlButton, Controls, Handle, MarkerType, MiniMap, Position,
   ReactFlow, ReactFlowProvider, useReactFlow,
   type Edge, type EdgeProps, type Node, type NodeProps, type Viewport,
 } from '@xyflow/react';
@@ -13,6 +13,7 @@ import { diffGraphs, getReceiptAssessment, safeUrl } from '../core/graph.js';
 import { isReceiptAssessment } from '../core/validate.js';
 import { prepareGraphExport } from '../core/export-projection.js';
 import { canvasRecords, matchingRecords, nodeDimensions, type CanvasOptions } from './canvas.js';
+import { frameCamera, resizeCamera, type CameraSize } from './camera.js';
 
 export interface GraphInspectorContext {
   document: GraphDocument;
@@ -225,8 +226,10 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   const shellRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState('');
-  const viewports = useRef(new Map<string, Viewport>());
-  const { fitView, setViewport } = useReactFlow();
+  const [locateTarget, setLocateTarget] = useState<{ id: string; sceneKey: string }>();
+  const viewports = useRef(new Map<string, { viewport: Viewport; size: CameraSize }>());
+  const appliedCamera = useRef<{ sceneKey: string; size: CameraSize } | undefined>(undefined);
+  const { setViewport } = useReactFlow();
   const changes = useChanges(document, baseline);
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -326,25 +329,47 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   // Selection is deliberately absent: inspecting a record does not move the camera.
   // Geometry, rather than callback identity, also tracks host projection/sizing
   // changes. Index-only searches leave an unchanged business camera alone.
-  const sceneKey = JSON.stringify([document.id, document.revision, location.focusId, location.direction, depth, showContainment, canvasSize,
+  const sceneKey = JSON.stringify([document.id, document.revision, location.focusId, location.direction, depth, showContainment,
     layout.nodes.map(node => [node.id, node.position.x, node.position.y, node.style?.width, node.style?.height]),
     layout.edges.map(edge => [edge.id, edge.source, edge.target])]);
+  const activeScene = useRef(sceneKey);
+  activeScene.current = sceneKey;
+  const cameraSize = useMemo(() => {
+    const [width = 0, height = 0] = canvasSize.split('x').map(Number);
+    return { width, height };
+  }, [canvasSize]);
+  // sceneKey contains the complete geometry but excludes selection, callback
+  // identity, and index-only search. Those changes must not reset the camera.
+  const cameraNodes = useMemo(() => layout.nodes.map(node => ({ id: node.id, position: node.position,
+    width: Number(node.style?.width), height: Number(node.style?.height) })), [sceneKey]);
+  const cameraEdges = useMemo(() => layout.edges.map(edge => ({ source: edge.source, target: edge.target })), [sceneKey]);
+  const overviewFrame = useMemo(() => frameCamera(cameraNodes, cameraEdges, cameraSize), [cameraNodes, cameraEdges, cameraSize]);
+  const automaticFrame = useMemo(() => frameCamera(cameraNodes, cameraEdges, cameraSize, location.focusId), [cameraNodes, cameraEdges, cameraSize, location.focusId]);
+  const applyCamera = useCallback((viewport: Viewport) => {
+    const canvas = canvasRef.current;
+    if (!canvas?.clientWidth || !canvas.clientHeight || canvas.clientWidth !== cameraSize.width || canvas.clientHeight !== cameraSize.height) return;
+    appliedCamera.current = { sceneKey, size: cameraSize };
+    viewports.current.set(sceneKey, { viewport, size: cameraSize });
+    void setViewport(viewport, { duration: 0 });
+  }, [sceneKey, cameraSize, setViewport]);
+  const fitAll = () => {
+    if (overviewFrame) applyCamera(overviewFrame.viewport);
+  };
+  const focusView = () => { if (automaticFrame) applyCamera(automaticFrame.viewport); };
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !automaticFrame) return;
     const frame = requestAnimationFrame(() => {
+      const canvas = canvasRef.current;
+      // A hidden mobile pane can retain its last desktop measurement until the
+      // ResizeObserver runs. Do not cache a frame for those stale dimensions.
+      if (activeScene.current !== sceneKey || !canvas?.clientWidth || !canvas.clientHeight || canvas.clientWidth !== cameraSize.width || canvas.clientHeight !== cameraSize.height) return;
       const saved = viewports.current.get(sceneKey);
-      if (saved) void setViewport(saved, { duration: 0 }); else void fitView({ padding: .16, minZoom: .12, maxZoom: 1, duration: 0 });
+      const located = locateTarget?.sceneKey === sceneKey && frameCamera(cameraNodes.filter(node => node.id === locateTarget.id), [], cameraSize, locateTarget.id);
+      applyCamera(located ? located.viewport : saved ? resizeCamera(saved.viewport, saved.size, cameraSize) : automaticFrame.viewport);
+      if (locateTarget) setLocateTarget(undefined);
     });
     return () => cancelAnimationFrame(frame);
-  }, [ready, sceneKey, fitView, setViewport]);
-  useEffect(() => {
-    if (!ready || mobilePane !== 'graph' || !window.matchMedia('(max-width: 760px)').matches) return;
-    const frame = requestAnimationFrame(() => {
-      const saved = viewports.current.get(sceneKey);
-      if (saved) void setViewport(saved, { duration: 0 }); else void fitView({ padding: .16, maxZoom: 1, duration: 0 });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [ready, mobilePane, sceneKey, fitView, setViewport]);
+  }, [ready, sceneKey, cameraSize, mobilePane, automaticFrame, applyCamera, locateTarget, cameraNodes]);
   const allSources = selected?.sources ?? [];
   const activities = (document.activities ?? []).filter(activity => selected && [...activity.inputs?.map(input => input.subject) ?? [], ...activity.outputs ?? []].some(subject => subject.type === selectedType && subject.id === selected.id));
   const receipts = (document.receipts ?? []).filter(receipt => !selected || receipt.subjects.some(subject => subject.type === selectedType && subject.id === selected.id) || receipt.subjects.some(subject => subject.type === 'activity' && activities.some(activity => activity.id === subject.id)));
@@ -386,7 +411,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
         {baseline && <details className="ge-baseline-summary"><summary>Snapshot changes <span>{changes.nodes.size + changes.edges.size + changes.removedNodes.length + changes.removedEdges.length}</span></summary><p>{changes.nodes.size} added or changed records · {changes.edges.size} added or changed relationships</p>{changes.removedNodes.map(node => <button type="button" className="ge-text-button" key={node.id} onClick={() => { select(node.id); setTab('history'); }}>Removed: {node.label}</button>)}{changes.removedEdges.map(edge => <button type="button" className="ge-text-button" key={edge.id} onClick={() => { select(edge.id, 'edge'); setTab('history'); }}>Removed: {edge.label ?? edge.kind}</button>)}</details>}
         <footer className="ge-index-footer">{document.description ?? 'Select a record to inspect its context.'}</footer>
       </aside>
-      <main className="ge-main" aria-label="Graph canvas"><div className="ge-toolbar"><div className="ge-scope"><button type="button" className={!focus ? 'is-active' : ''} onClick={() => update({ focusId: undefined }, { reason: 'focus' })}>Whole graph</button>{focus && <span title={focus.label}>/ {focus.label}</span>}</div><div className="ge-toolbar-actions">{renderToolbar?.(context)}{exportOptions && <button type="button" disabled={exporting} aria-busy={exporting} onClick={() => { void exportProjection(); }}>{exporting ? 'Exporting…' : exportOptions.label ?? 'Export'}</button>}<button type="button" onClick={() => { void fitView({ padding: .16, maxZoom: 1, duration: 0 }); }}>Fit view</button></div></div>
+      <main className="ge-main" aria-label="Graph canvas"><div className="ge-toolbar"><div className="ge-scope"><button type="button" className={!focus ? 'is-active' : ''} onClick={() => update({ focusId: undefined }, { reason: 'focus' })}>Whole graph</button>{focus && <span title={focus.label}>/ {focus.label}</span>}</div><div className="ge-toolbar-actions">{renderToolbar?.(context)}{exportOptions && <button type="button" disabled={exporting} aria-busy={exporting} onClick={() => { void exportProjection(); }}>{exporting ? 'Exporting…' : exportOptions.label ?? 'Export'}</button>}<>{automaticFrame?.focused && <button type="button" onClick={focusView}>Focus view</button>}<button type="button" onClick={fitAll}>Fit all</button></></div></div>
         {exportError && <p className="ge-export-error" role="alert">{exportError}</p>}
         <div className="ge-view-options">{focus ? <><div className="ge-direction" role="group" aria-label="Relationship direction">{(['both', 'upstream', 'downstream'] as const).map(direction => <button type="button" key={direction} aria-pressed={(location.direction ?? 'both') === direction} onClick={() => update({ direction })}>{direction === 'both' ? 'Lineage' : direction === 'upstream' ? 'Upstream' : 'Downstream'}</button>)}</div><label>Depth <select value={depth} onChange={event => update({ depth: Number(event.target.value) })}>{[1, 2, 3, 5, 10].map(value => <option key={value}>{value}</option>)}</select></label></> : <span className="ge-muted">Select to inspect · double-click to explore</span>}<label className="ge-containment"><input type="checkbox" checked={showContainment} onChange={event => update({ showContainment: event.target.checked })} />Containment</label></div>
         <div className="ge-canvas" ref={canvasRef}><ReactFlow<CardNode, RelationEdge> nodes={layout.nodes.map(node => ({ ...node, data: { ...node.data, context: { document, selectNode: context.selectNode, selectEdge: context.selectEdge, focusNode: explore }, renderContent: renderNodeContent }, selected: selectedType === 'node' && node.id === selected?.id }))} edges={layout.edges.map(edge => ({ ...edge, selected: selectedType === 'edge' && edge.id === selected?.id }))}
@@ -394,14 +419,21 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
           onNodeClick={(_, node) => select(node.id)} onNodeDoubleClick={(_, node) => explore(node.id)} onEdgeClick={(_, edge) => select(edge.id, 'edge')}
           onNodesChange={items => { const change = items.find(item => item.type === 'select' && item.selected); if (change?.type === 'select' && (selectedType !== 'node' || change.id !== selected?.id)) select(change.id); }}
           onEdgesChange={items => { const change = items.find(item => item.type === 'select' && item.selected); if (change?.type === 'select' && (selectedType !== 'edge' || change.id !== selected?.id)) select(change.id, 'edge'); }}
-          onMoveEnd={(_, viewport) => viewports.current.set(sceneKey, viewport)} minZoom={.04} maxZoom={2} fitView fitViewOptions={{ padding: .16, maxZoom: 1 }} preventScrolling>
-          <Background gap={24} size={1} color="#d6dbd1" /><Controls showInteractive={false} /><MiniMap pannable zoomable nodeColor={node => node.selected ? '#4b6853' : '#c4cebe'} maskColor="rgba(241,243,235,.7)" />
+          onMove={(_, viewport) => {
+            // XYFlow defers move-end notifications and resolves the latest
+            // callback. Cache synchronous moves only after this scene/size has
+            // been applied, so a previous scene cannot seed a new scene's view.
+            const applied = appliedCamera.current;
+            const canvas = canvasRef.current;
+            if (applied?.sceneKey === sceneKey && applied.size === cameraSize && canvas?.clientWidth === cameraSize.width && canvas.clientHeight === cameraSize.height) viewports.current.set(sceneKey, { viewport, size: cameraSize });
+          }} minZoom={Math.min(.04, automaticFrame?.viewport.zoom ?? .04, overviewFrame?.viewport.zoom ?? .04)} maxZoom={2} preventScrolling>
+          <Background gap={24} size={1} color="#d6dbd1" /><Controls showInteractive={false} showFitView={false}><ControlButton onClick={fitAll} title="Fit all" aria-label="Fit all graph records"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" /></svg></ControlButton></Controls><MiniMap pannable zoomable nodeColor={node => node.selected ? '#4b6853' : '#c4cebe'} maskColor="rgba(241,243,235,.7)" />
         </ReactFlow>{layout.nodes.length === 0 && <div className="ge-canvas-empty"><h2>No records in this view</h2><p>{canvasNodeFilter ? 'Records may be available in the index outside this canvas.' : 'Adjust the search or record type.'}</p><button type="button" onClick={() => update({ query: '', kinds: [], focusId: undefined, collapsedIds: [] })}>Reset view</button></div>}</div>
-        <footer className="ge-canvas-footer"><span>{layout.nodes.length} visible · {layout.edges.length} relationships</span><span>Direction follows the authored relationship</span></footer>
+        <footer className="ge-canvas-footer"><span>{layout.nodes.length} records · {layout.edges.length} relationships</span><span>{automaticFrame?.focused ? 'Pan to explore · Fit all for overview' : 'Direction follows the authored relationship'}</span></footer>
       </main>
       <aside className="ge-inspector" aria-label="Selection inspector">{renderInspector ? renderInspector(context) : <><div className="ge-inspector-heading"><div className="ge-eyebrow">{selected ? `${selected.kind}${selectedType === 'edge' ? ' · relationship' : ''}` : 'Snapshot'}</div><h2>{selected?.label ?? (selectedEdge ? selectedEdge.kind : document.title)}</h2>{selected && <code className="ge-record-id">{selected.id}</code>}{removed && <Badge badge={{ label: 'Removed from this snapshot', tone: 'warning' }} />}{selected?.revision && <code className="ge-revision">Revision {selected.revision}</code>}
         {!!selected?.statuses?.length && <div className="ge-status-list">{selected.statuses.map((badge, i) => <Badge key={i} badge={badge} />)}</div>}
-        {selectedNode && !removed && <div className="ge-node-actions"><button type="button" onClick={() => explore(selectedNode.id)}>Explore neighbors</button><button type="button" disabled={!layout.nodes.some(node => node.id === selectedNode.id)} onClick={() => { setMobilePane('graph'); void fitView({ nodes: [{ id: selectedNode.id }], maxZoom: 1, padding: .5, duration: 0 }); }}>Locate</button>{childCounts.has(selectedNode.id) && <button type="button" onClick={() => update({ collapsedIds: location.collapsedIds?.includes(selectedNode.id) ? location.collapsedIds.filter(id => id !== selectedNode.id) : [...location.collapsedIds ?? [], selectedNode.id] })}>{location.collapsedIds?.includes(selectedNode.id) ? 'Expand children' : 'Collapse children'}</button>}</div>}
+        {selectedNode && !removed && <div className="ge-node-actions"><button type="button" onClick={() => explore(selectedNode.id)}>Explore neighbors</button><button type="button" disabled={!layout.nodes.some(node => node.id === selectedNode.id)} onClick={() => { setLocateTarget({ id: selectedNode.id, sceneKey }); setMobilePane('graph'); }}>Locate</button>{childCounts.has(selectedNode.id) && <button type="button" onClick={() => update({ collapsedIds: location.collapsedIds?.includes(selectedNode.id) ? location.collapsedIds.filter(id => id !== selectedNode.id) : [...location.collapsedIds ?? [], selectedNode.id] })}>{location.collapsedIds?.includes(selectedNode.id) ? 'Expand children' : 'Collapse children'}</button>}</div>}
       </div>
       <div className="ge-inspector-tabs" role="tablist" aria-label="Inspector sections">{tabs.map(([id, label], index) => <button type="button" role="tab" key={id} id={`${generatedId}-${id}-tab`} aria-controls={`${generatedId}-${id}-panel`} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} onKeyDown={event => { if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' && event.key !== 'Home' && event.key !== 'End') return; event.preventDefault(); const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; setTab(tabs[next][0]); globalThis.document.getElementById(`${generatedId}-${tabs[next][0]}-tab`)?.focus(); }}>{label}</button>)}</div>
       <div className="ge-inspector-body" role="tabpanel" id={`${generatedId}-${tab}-panel`} aria-labelledby={`${generatedId}-${tab}-tab`} tabIndex={0}>

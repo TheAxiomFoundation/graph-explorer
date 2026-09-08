@@ -67,13 +67,23 @@ interface GraphNodeRenderContext extends GraphInspectorContext {
 
 - `select`: an explicit record/edge selection, including index, canvas, inspector, and context selection actions. Clicking an already selected record still emits this reason. Escape clears selection with the same reason.
 - `focus`: `focusNode`, double-click exploration, or Whole graph. Focusing a node also sets its selection; clearing focus with Whole graph preserves selection.
-- `view`: query, kind filter, depth, direction, containment, collapse, or reset-view changes. Context `setLocation` defaults to this reason; pass `{ reason: 'select' }` or `{ reason: 'focus' }` for those host actions. Pan, zoom, and Fit view only affect the local camera and do not emit a location callback.
+- `view`: query, kind filter, depth, direction, containment, collapse, or reset-view changes. Context `setLocation` defaults to this reason; pass `{ reason: 'select' }` or `{ reason: 'focus' }` for those host actions. Pan, zoom, Fit all, Focus view, and Locate only affect the local camera and do not emit a location callback.
 
 A host may select an exact nested field while highlighting its business ancestor. On `select`, resolve the host's selection to the explicit record even if `selectedId` is unchanged. On `view`, retain that precise host selection. Handle `focus` according to the host's exploration behavior. Metadata describes the user action, not a diff inferred from the two locations. External prop updates do not emit callbacks.
 
 On mobile, explicit selection opens Inspect and focus opens Graph. After mounting, an external controlled change to `selectedId` or its normalized node/edge type opens Inspect; an external clear opens Graph. Reflection of the viewer's latest own navigation preserves the pane chosen by its intent, including delayed reflection of focus. View-only updates do not reopen Inspect, and the initial Graph pane is preserved for initial deep links. The host must reconcile asynchronous navigation and discard stale responses. A host-only nested-field change that leaves both shared selection fields identical is not observable by the viewer; use an explicit context selection action when it also needs to open Inspect.
 
 The canvas filter is absolute: focusing a host-excluded record does not put it on the canvas. Focus may override search/kind matching, but cannot restore a collapsed descendant. Lineage is computed through the full document, including hidden intermediate records; only allowed records are drawn. Filtering does not synthesize shortcut relationships. The full index and visible canvas counts describe different scopes. These presentation controls do not redact source data.
+
+## Focus framing and camera
+
+Version 0.3.1 keeps the focused record centered instead of shrinking its entire neighborhood to fit. The preferred minimum automatic zoom is 0.85 (about 211 screen pixels for a default 248px card), capped at 1. If the focus card itself cannot fit, such as a large custom card on mobile, it is scaled down to fit. Normal canvases reserve 24px padding.
+
+When the whole scene cannot fit at that readable scale, the camera frames the focus and up to six fitting incident neighbors, ordered by geometric distance and stable ID. This chooses a camera extent only: every projected node and native relationship remains in the canvas and is available by panning or through the index and inspector. No domain grouping, synthetic relationships, graph filtering, or layout changes are inferred from the framing subset. If the host excludes the focus from the canvas, the camera uses an overview of the allowed records.
+
+**Fit all** explicitly frames the entire current canvas, including very large scenes that require zoom below 0.04. **Focus view** returns to readable framing without changing selection or scope. **Locate** centers the selected record. The controls do not emit location callbacks. Whole graph changes exploration scope and keeps its existing `focus` intent.
+
+The camera is cached by graph geometry and exploration scope, separately from selection and index-only queries. Returning to a previous scope restores its camera; resizing preserves the world point under the viewport center and the zoom. Explicit camera controls and manual pan/zoom update that cached view. **Focus view** can reframe a focused scene for its new dimensions after a resize. A source-checkout regression fixture is at `examples/focus.html` with 18 synthetic records and custom card sizes.
 
 ## Custom cards
 
