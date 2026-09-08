@@ -35,7 +35,9 @@ const document = parseGraphDocument(snapshot);
 
 The package supports React 18 and 19. `bun run build` creates JavaScript, declarations, and combined viewer styles. Until a registry release, install the tarball created by `npm pack`.
 
-`GraphExplorer` accepts a `baseline` for snapshot comparison, controlled `location` and `onLocationChange` for host routing, and `renderInspector` for domain-specific inspector panels and actions. The callback receives the document, selected node/edge, and `selectNode`, `selectEdge`, and `focusNode` functions. Selection and exploration focus are independent. `renderNodeDetails` adds fields to the default inspector. Optional `revisions`, `currentRevisionId`, and `onRevisionChange` display host-supplied history; revision strings alone do not imply ancestry.
+`GraphExplorer` accepts a `baseline` for snapshot comparison and controlled `location`/`onLocationChange` for host routing. Selection and exploration focus are independent. Custom cards, sizes, toolbar controls, and inspectors use the [React host API](docs/react-hosts.md), including a full navigation context whose `setLocation` replaces state. Optional revision choices come from the host; revision strings alone do not imply ancestry.
+
+`canvasNodeFilter` limits presentation while retaining the complete searchable index; `searchFiltersCanvas={false}` confines query and kind filters to that index. For an export button, `exportOptions` requires an explicit host projection and delivery callback. Delivery receives only the detached, validated document and its exact JSON, with no inherited navigation or verification state. Canvas filtering does not redact an export; see the [export contract](docs/react-hosts.md#explicit-export).
 
 ## Portable snapshots
 
@@ -71,7 +73,7 @@ Graph JSON cannot verify itself. Receipt references contain no executable config
 After building and packing this repository, install the tarball in a Node 20+ project. The installed CLI uses bundled assets and needs no Bun or source checkout:
 
 ```sh
-npm install /path/to/axiom-foundation-graph-explorer-0.1.0.tgz
+npm install /path/to/axiom-foundation-graph-explorer-0.2.0.tgz
 npx graph-explorer --input graph.json --output report.html
 ```
 

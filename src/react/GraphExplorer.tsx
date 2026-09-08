@@ -9,8 +9,10 @@ import type {
   ActivityRecord, GraphDocument, GraphEdge, GraphLocation, GraphNode,
   JsonValue, ReceiptAssessment, SourceRef, StatusBadge, SubjectRef,
 } from '../core/types.js';
-import { diffGraphs, getReceiptAssessment, safeUrl, traverse } from '../core/graph.js';
+import { diffGraphs, getReceiptAssessment, safeUrl } from '../core/graph.js';
 import { isReceiptAssessment } from '../core/validate.js';
+import { prepareGraphExport } from '../core/export-projection.js';
+import { canvasRecords, matchingRecords, nodeDimensions, type CanvasOptions } from './canvas.js';
 
 export interface GraphInspectorContext {
   document: GraphDocument;
@@ -21,7 +23,37 @@ export interface GraphInspectorContext {
   focusNode: (id: string, direction?: GraphLocation['direction']) => void;
 }
 
-export interface GraphExplorerProps {
+export interface GraphHostContext extends GraphInspectorContext {
+  location: GraphLocation;
+  /** Replace navigation state; use object spread when preserving existing fields. */
+  setLocation: (location: GraphLocation) => void;
+  visibleNodeIds: readonly string[];
+  visibleEdgeIds: readonly string[];
+}
+
+export interface GraphNodeRenderContext extends GraphInspectorContext {
+  node: GraphNode;
+  selected: boolean;
+  change?: string;
+  childCount: number;
+  collapsed: boolean;
+}
+
+export interface GraphExportRequest {
+  document: GraphDocument;
+  /** Exact serialized projection. Hash these bytes for any new assessment. */
+  json: string;
+}
+
+export interface GraphExportOptions {
+  label?: string;
+  /** Explicit host policy: canvas visibility is never an export/redaction policy. */
+  projectDocument: (context: GraphHostContext) => GraphDocument | Promise<GraphDocument>;
+  /** Called only after the host projection validates; no assessments are inherited. */
+  onExport: (request: GraphExportRequest) => void | Promise<void>;
+}
+
+export interface GraphExplorerProps extends CanvasOptions {
   document: GraphDocument;
   baseline?: GraphDocument;
   /** Trusted host assessments; declarations inside graph JSON never verify a receipt. */
@@ -32,17 +64,22 @@ export interface GraphExplorerProps {
   location?: GraphLocation;
   onLocationChange?: (location: GraphLocation) => void;
   renderNodeDetails?: (node: GraphNode, document: GraphDocument) => ReactNode;
-  renderInspector?: (context: GraphInspectorContext) => ReactNode;
+  renderInspector?: (context: GraphHostContext) => ReactNode;
+  renderToolbar?: (context: GraphHostContext) => ReactNode;
+  /** Custom content inside the shared accessible card and edge handles. */
+  renderNodeContent?: (context: GraphNodeRenderContext) => ReactNode;
+  /** Content sizing for layout; dimensions must not depend on selection. */
+  getNodeSize?: (node: GraphNode, document: GraphDocument) => { width: number; height: number };
+  exportOptions?: GraphExportOptions;
   revisions?: { id: string; label: string }[];
   currentRevisionId?: string;
   onRevisionChange?: (revisionId: string) => void;
 }
 
-type CardData = { record: GraphNode; change?: string; childCount: number; collapsed: boolean };
+type CardData = { record: GraphNode; change?: string; childCount: number; collapsed: boolean; context?: GraphInspectorContext; renderContent?: GraphExplorerProps['renderNodeContent'] };
 type CardNode = Node<CardData, 'record'>;
 type RelationEdge = Edge<{ record: GraphEdge; offset: number }, 'relation'>;
 type InspectorTab = 'record' | 'sources' | 'activity' | 'receipts' | 'history';
-const WIDTH = 248, HEIGHT = 126;
 const EMPTY_ASSESSMENTS: ReceiptAssessment[] = [];
 
 /** Plain destinations only. Relative artifacts remain useful in offline reports. */
@@ -55,15 +92,15 @@ function Badge({ badge }: { badge: StatusBadge }) {
   return <span className={`ge-badge ge-tone-${tone}`}>{badge.label}</span>;
 }
 
-function RecordNode({ data }: NodeProps<CardNode>) {
+function RecordNode({ data, selected }: NodeProps<CardNode>) {
   return <div className="ge-node-card">
     <Handle type="target" position={Position.Left} />
-    <div className="ge-node-eyebrow"><span>{data.record.kind}</span>{data.change && <span className="ge-change">{data.change}</span>}</div>
+    {data.renderContent && data.context ? data.renderContent({ ...data.context, node: data.record, selected: Boolean(selected), change: data.change, childCount: data.childCount, collapsed: data.collapsed }) : <><div className="ge-node-eyebrow"><span>{data.record.kind}</span>{data.change && <span className="ge-change">{data.change}</span>}</div>
     <strong title={data.record.label}>{data.record.label}</strong>
     <div className="ge-node-statuses">{data.record.statuses?.slice(0, 2).map((badge, i) => <Badge key={i} badge={badge} />)}
       {(data.record.statuses?.length ?? 0) > 2 && <span className="ge-more-status">+{data.record.statuses!.length - 2}</span>}
       {data.childCount > 0 && <span className="ge-child-count">{data.childCount} children{data.collapsed ? ' · collapsed' : ''}</span>}
-    </div>
+    </div></>}
     <Handle type="source" position={Position.Right} />
   </div>;
 }
@@ -145,7 +182,7 @@ function Activity({ activity, select, document }: { activity: ActivityRecord; se
   </section>;
 }
 
-function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documentSha256, initialLocation, location: controlledLocation, onLocationChange, renderNodeDetails, renderInspector, revisions, currentRevisionId, onRevisionChange }: GraphExplorerProps) {
+function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documentSha256, initialLocation, location: controlledLocation, onLocationChange, renderNodeDetails, renderInspector, renderToolbar, renderNodeContent, getNodeSize, canvasNodeFilter, searchFiltersCanvas = true, exportOptions, revisions, currentRevisionId, onRevisionChange }: GraphExplorerProps) {
   const generatedId = useId();
   const [internalLocation, setInternalLocation] = useState<GraphLocation>(() => initialLocation ?? {});
   const location = controlledLocation ?? internalLocation;
@@ -156,6 +193,9 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   const depth = location.depth ?? 1;
   const showContainment = location.showContainment ?? true;
   const [ready, setReady] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string>();
+  const exportInFlight = useRef(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -188,12 +228,14 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     for (const edge of document.edges) if (edge.category === 'containment') { const ids = children.get(edge.source) ?? new Set(); ids.add(edge.target); children.set(edge.source, ids); }
     return children;
   }, [document]);
-  const update = useCallback((patch: Partial<GraphLocation>) => {
-    const next = { ...locationRef.current, ...patch };
+  const setLocation = useCallback((next: GraphLocation) => {
     locationRef.current = next;
     if (controlledLocation === undefined) setInternalLocation(next);
     onLocationChange?.(next);
   }, [controlledLocation, onLocationChange]);
+  const update = useCallback((patch: Partial<GraphLocation>) => {
+    setLocation({ ...locationRef.current, ...patch });
+  }, [setLocation]);
   const select = useCallback((id: string, type: 'node' | 'edge' = 'node') => { update({ selectedId: id, selectedType: type }); setMobilePane('inspector'); }, [update]);
   const explore = (id: string, direction: GraphLocation['direction'] = 'both') => { update({ selectedId: id, selectedType: 'node', focusId: id, direction }); setMobilePane('graph'); };
 
@@ -209,40 +251,36 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     return () => window.removeEventListener('keydown', handleKey);
   }, [update]);
 
-  const matching = useMemo(() => {
-    const words = (location.query ?? '').toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
-    return document.nodes.filter(node => (!location.kinds?.length || location.kinds.includes(node.kind))
-      && words.every(word => `${node.label} ${node.id} ${node.kind} ${node.description ?? ''} ${JSON.stringify(node.data ?? {})}`.toLocaleLowerCase().includes(word)));
-  }, [document, location.query, location.kinds]);
-  const visibleNodes = useMemo(() => {
-    const hidden = new Set<string>();
-    for (const id of location.collapsedIds ?? []) {
-      const queue = [...(childCounts.get(id) ?? [])];
-      for (let i = 0; i < queue.length; i++) if (queue[i] !== id && !hidden.has(queue[i])) { hidden.add(queue[i]); queue.push(...childCounts.get(queue[i]) ?? []); }
-    }
-    let visible = matching.filter(node => !hidden.has(node.id));
-    if (focus) {
-      const visited = traverse(document, focus.id, location.direction ?? 'both', { maxDepth: depth,
-        ...(showContainment ? {} : { categories: ['dependency', 'evidence', 'provenance', 'reference', undefined] as GraphEdge['category'][] }) });
-      visible = visible.filter(node => visited.has(node.id));
-      if (!visible.some(node => node.id === focus.id)) visible.unshift(focus);
-    }
-    return visible;
-  }, [matching, childCounts, location.collapsedIds, focus, depth, document.edges, showContainment, location.direction]);
-  const layout = useMemo(() => {
+  const matching = useMemo(() => matchingRecords(document, location), [document, location.query, location.kinds]);
+  const canvasMatching = searchFiltersCanvas ? matching : document.nodes;
+  const visibleNodes = useMemo(() => canvasRecords(document, location, canvasMatching, childCounts, { canvasNodeFilter, searchFiltersCanvas }),
+    [document, canvasMatching, childCounts, location.collapsedIds, location.focusId, depth, showContainment, location.direction, canvasNodeFilter, searchFiltersCanvas]);
+  const relationships = useMemo(() => {
     const ids = new Set(visibleNodes.map(node => node.id));
-    const relationships = document.edges.filter(edge => ids.has(edge.source) && ids.has(edge.target) && (showContainment || edge.category !== 'containment'));
+    return document.edges.filter(edge => ids.has(edge.source) && ids.has(edge.target) && (showContainment || edge.category !== 'containment'));
+  }, [document.edges, visibleNodes, showContainment]);
+  const geometryKey = JSON.stringify({
+    nodes: visibleNodes.map(node => { const size = nodeDimensions(getNodeSize?.(node, document)); return [node.id, size.width, size.height]; }),
+    edges: relationships.map(edge => [edge.id, edge.source, edge.target]),
+  });
+  // Host callbacks may be inline. Only a changed topology or dimensions should
+  // rerun Dagre; selection, content, and equivalent filters remain inexpensive.
+  const positions = useMemo(() => {
+    const geometry = JSON.parse(geometryKey) as { nodes: [string, number, number][]; edges: [string, string, string][] };
     const graph = new dagre.graphlib.Graph({ multigraph: true });
     graph.setGraph({ rankdir: 'LR', ranksep: 116, nodesep: 40, edgesep: 24, marginx: 32, marginy: 32 });
     graph.setDefaultEdgeLabel(() => ({}));
-    for (const node of visibleNodes) graph.setNode(node.id, { width: WIDTH, height: HEIGHT });
-    for (const edge of relationships) graph.setEdge(edge.source, edge.target, {}, edge.id);
-    if (visibleNodes.length) dagre.layout(graph);
+    for (const [id, width, height] of geometry.nodes) graph.setNode(id, { width, height });
+    for (const [id, source, target] of geometry.edges) graph.setEdge(source, target, {}, id);
+    if (geometry.nodes.length) dagre.layout(graph);
+    return new Map(geometry.nodes.map(([id]) => [id, graph.node(id)]));
+  }, [geometryKey]);
+  const layout = useMemo(() => {
     const nodes: CardNode[] = visibleNodes.map(record => {
-      const point = graph.node(record.id);
-      return { id: record.id, type: 'record', position: { x: point.x - WIDTH / 2, y: point.y - HEIGHT / 2 },
+      const point = positions.get(record.id)!;
+      return { id: record.id, type: 'record', position: { x: point.x - point.width / 2, y: point.y - point.height / 2 },
         data: { record, change: changes.nodes.get(record.id), childCount: childCounts.get(record.id)?.size ?? 0, collapsed: location.collapsedIds?.includes(record.id) ?? false },
-        style: { width: WIDTH, height: HEIGHT }, ariaLabel: `${record.label}, ${record.kind}${record.statuses?.map(status => `, ${status.label}`).join('') ?? ''}`, };
+        style: { width: point.width, height: point.height }, ariaLabel: `${record.label}, ${record.kind}${record.statuses?.map(status => `, ${status.label}`).join('') ?? ''}`, };
     });
     const pairs = new Map<string, GraphEdge[]>();
     for (const edge of relationships) { const key = JSON.stringify([edge.source, edge.target]); const list = pairs.get(key) ?? []; list.push(edge); pairs.set(key, list); }
@@ -256,9 +294,13 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
       };
     });
     return { nodes, edges };
-  }, [visibleNodes, document.edges, showContainment, changes.nodes, childCounts, location.collapsedIds, nodesById]);
+  }, [visibleNodes, relationships, positions, changes.nodes, childCounts, location.collapsedIds, nodesById]);
   // Selection is deliberately absent: inspecting a record does not move the camera.
-  const sceneKey = JSON.stringify([document.id, document.revision, location.focusId, location.direction, depth, location.query, location.kinds, location.collapsedIds, showContainment, canvasSize]);
+  // Geometry, rather than callback identity, also tracks host projection/sizing
+  // changes. Index-only searches leave an unchanged business camera alone.
+  const sceneKey = JSON.stringify([document.id, document.revision, location.focusId, location.direction, depth, showContainment, canvasSize,
+    layout.nodes.map(node => [node.id, node.position.x, node.position.y, node.style?.width, node.style?.height]),
+    layout.edges.map(edge => [edge.id, edge.source, edge.target])]);
   useEffect(() => {
     if (!ready) return;
     const frame = requestAnimationFrame(() => {
@@ -280,6 +322,26 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   const receipts = (document.receipts ?? []).filter(receipt => !selected || receipt.subjects.some(subject => subject.type === selectedType && subject.id === selected.id) || receipt.subjects.some(subject => subject.type === 'activity' && activities.some(activity => activity.id === subject.id)));
   const relations = selectedNode ? document.edges.filter(edge => edge.source === selectedNode.id || edge.target === selectedNode.id) : [];
   const tabs: [InspectorTab, string][] = [['record', 'Record'], ['sources', 'Sources'], ['activity', 'Activity'], ['receipts', 'Receipts'], ['history', 'History']];
+  const context: GraphHostContext = {
+    document, node: selectedNode, edge: selectedEdge,
+    selectNode: id => select(id), selectEdge: id => select(id, 'edge'), focusNode: explore,
+    location, setLocation, visibleNodeIds: layout.nodes.map(node => node.id), visibleEdgeIds: layout.edges.map(edge => edge.id),
+  };
+  const exportProjection = async () => {
+    if (!exportOptions || exportInFlight.current) return;
+    exportInFlight.current = true; setExporting(true); setExportError(undefined);
+    try {
+      const projected = await exportOptions.projectDocument(context);
+      const request = prepareGraphExport(projected);
+      // Neither the original navigation/search nor existing verdicts are part
+      // of this request; only the explicitly projected and validated document.
+      await exportOptions.onExport(request);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Export failed');
+    } finally {
+      exportInFlight.current = false; setExporting(false);
+    }
+  };
 
   return <div className={`ge-explorer ge-pane-${mobilePane}`} ref={shellRef} style={{ '--ge-instance': generatedId } as CSSProperties}>
     <header className="ge-header"><div className="ge-brand"><span className="ge-mark" aria-hidden="true">⌘</span><div><div className="ge-eyebrow">Graph explorer</div><h1>{document.title}</h1></div></div>
@@ -296,19 +358,20 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
         {baseline && <details className="ge-baseline-summary"><summary>Snapshot changes <span>{changes.nodes.size + changes.edges.size + changes.removedNodes.length + changes.removedEdges.length}</span></summary><p>{changes.nodes.size} added or changed records · {changes.edges.size} added or changed relationships</p>{changes.removedNodes.map(node => <button type="button" className="ge-text-button" key={node.id} onClick={() => { select(node.id); setTab('history'); }}>Removed: {node.label}</button>)}{changes.removedEdges.map(edge => <button type="button" className="ge-text-button" key={edge.id} onClick={() => { select(edge.id, 'edge'); setTab('history'); }}>Removed: {edge.label ?? edge.kind}</button>)}</details>}
         <footer className="ge-index-footer">{document.description ?? 'Select a record to inspect its context.'}</footer>
       </aside>
-      <main className="ge-main" aria-label="Graph canvas"><div className="ge-toolbar"><div className="ge-scope"><button type="button" className={!focus ? 'is-active' : ''} onClick={() => update({ focusId: undefined })}>Whole graph</button>{focus && <span title={focus.label}>/ {focus.label}</span>}</div><button type="button" onClick={() => { void fitView({ padding: .16, maxZoom: 1, duration: 0 }); }}>Fit view</button></div>
+      <main className="ge-main" aria-label="Graph canvas"><div className="ge-toolbar"><div className="ge-scope"><button type="button" className={!focus ? 'is-active' : ''} onClick={() => update({ focusId: undefined })}>Whole graph</button>{focus && <span title={focus.label}>/ {focus.label}</span>}</div><div className="ge-toolbar-actions">{renderToolbar?.(context)}{exportOptions && <button type="button" disabled={exporting} aria-busy={exporting} onClick={() => { void exportProjection(); }}>{exporting ? 'Exporting…' : exportOptions.label ?? 'Export'}</button>}<button type="button" onClick={() => { void fitView({ padding: .16, maxZoom: 1, duration: 0 }); }}>Fit view</button></div></div>
+        {exportError && <p className="ge-export-error" role="alert">{exportError}</p>}
         <div className="ge-view-options">{focus ? <><div className="ge-direction" role="group" aria-label="Relationship direction">{(['both', 'upstream', 'downstream'] as const).map(direction => <button type="button" key={direction} aria-pressed={(location.direction ?? 'both') === direction} onClick={() => update({ direction })}>{direction === 'both' ? 'Lineage' : direction === 'upstream' ? 'Upstream' : 'Downstream'}</button>)}</div><label>Depth <select value={depth} onChange={event => update({ depth: Number(event.target.value) })}>{[1, 2, 3, 5, 10].map(value => <option key={value}>{value}</option>)}</select></label></> : <span className="ge-muted">Select to inspect · double-click to explore</span>}<label className="ge-containment"><input type="checkbox" checked={showContainment} onChange={event => update({ showContainment: event.target.checked })} />Containment</label></div>
-        <div className="ge-canvas" ref={canvasRef}><ReactFlow<CardNode, RelationEdge> nodes={layout.nodes.map(node => ({ ...node, selected: selectedType === 'node' && node.id === selected?.id }))} edges={layout.edges.map(edge => ({ ...edge, selected: selectedType === 'edge' && edge.id === selected?.id }))}
+        <div className="ge-canvas" ref={canvasRef}><ReactFlow<CardNode, RelationEdge> nodes={layout.nodes.map(node => ({ ...node, data: { ...node.data, context: { document, selectNode: context.selectNode, selectEdge: context.selectEdge, focusNode: explore }, renderContent: renderNodeContent }, selected: selectedType === 'node' && node.id === selected?.id }))} edges={layout.edges.map(edge => ({ ...edge, selected: selectedType === 'edge' && edge.id === selected?.id }))}
           nodeTypes={nodeTypes} edgeTypes={edgeTypes} onInit={() => setReady(true)} nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null}
           onNodeClick={(_, node) => select(node.id)} onNodeDoubleClick={(_, node) => explore(node.id)} onEdgeClick={(_, edge) => select(edge.id, 'edge')}
           onNodesChange={items => { const change = items.find(item => item.type === 'select' && item.selected); if (change?.type === 'select' && (selectedType !== 'node' || change.id !== selected?.id)) select(change.id); }}
           onEdgesChange={items => { const change = items.find(item => item.type === 'select' && item.selected); if (change?.type === 'select' && (selectedType !== 'edge' || change.id !== selected?.id)) select(change.id, 'edge'); }}
           onMoveEnd={(_, viewport) => viewports.current.set(sceneKey, viewport)} minZoom={.04} maxZoom={2} fitView fitViewOptions={{ padding: .16, maxZoom: 1 }} preventScrolling>
           <Background gap={24} size={1} color="#d6dbd1" /><Controls showInteractive={false} /><MiniMap pannable zoomable nodeColor={node => node.selected ? '#4b6853' : '#c4cebe'} maskColor="rgba(241,243,235,.7)" />
-        </ReactFlow>{layout.nodes.length === 0 && <div className="ge-canvas-empty"><h2>No records in this view</h2><p>Adjust the search or record type.</p><button type="button" onClick={() => update({ query: '', kinds: [], focusId: undefined, collapsedIds: [] })}>Show all records</button></div>}</div>
+        </ReactFlow>{layout.nodes.length === 0 && <div className="ge-canvas-empty"><h2>No records in this view</h2><p>{canvasNodeFilter ? 'Records may be available in the index outside this canvas.' : 'Adjust the search or record type.'}</p><button type="button" onClick={() => update({ query: '', kinds: [], focusId: undefined, collapsedIds: [] })}>Reset view</button></div>}</div>
         <footer className="ge-canvas-footer"><span>{layout.nodes.length} visible · {layout.edges.length} relationships</span><span>Direction follows the authored relationship</span></footer>
       </main>
-      <aside className="ge-inspector" aria-label="Selection inspector">{renderInspector ? renderInspector({ document, node: selectedNode, edge: selectedEdge, selectNode: id => select(id), selectEdge: id => select(id, 'edge'), focusNode: explore }) : <><div className="ge-inspector-heading"><div className="ge-eyebrow">{selected ? `${selected.kind}${selectedType === 'edge' ? ' · relationship' : ''}` : 'Snapshot'}</div><h2>{selected?.label ?? (selectedEdge ? selectedEdge.kind : document.title)}</h2>{selected && <code className="ge-record-id">{selected.id}</code>}{removed && <Badge badge={{ label: 'Removed from this snapshot', tone: 'warning' }} />}{selected?.revision && <code className="ge-revision">Revision {selected.revision}</code>}
+      <aside className="ge-inspector" aria-label="Selection inspector">{renderInspector ? renderInspector(context) : <><div className="ge-inspector-heading"><div className="ge-eyebrow">{selected ? `${selected.kind}${selectedType === 'edge' ? ' · relationship' : ''}` : 'Snapshot'}</div><h2>{selected?.label ?? (selectedEdge ? selectedEdge.kind : document.title)}</h2>{selected && <code className="ge-record-id">{selected.id}</code>}{removed && <Badge badge={{ label: 'Removed from this snapshot', tone: 'warning' }} />}{selected?.revision && <code className="ge-revision">Revision {selected.revision}</code>}
         {!!selected?.statuses?.length && <div className="ge-status-list">{selected.statuses.map((badge, i) => <Badge key={i} badge={badge} />)}</div>}
         {selectedNode && !removed && <div className="ge-node-actions"><button type="button" onClick={() => explore(selectedNode.id)}>Explore neighbors</button><button type="button" disabled={!layout.nodes.some(node => node.id === selectedNode.id)} onClick={() => { setMobilePane('graph'); void fitView({ nodes: [{ id: selectedNode.id }], maxZoom: 1, padding: .5, duration: 0 }); }}>Locate</button>{childCounts.has(selectedNode.id) && <button type="button" onClick={() => update({ collapsedIds: location.collapsedIds?.includes(selectedNode.id) ? location.collapsedIds.filter(id => id !== selectedNode.id) : [...location.collapsedIds ?? [], selectedNode.id] })}>{location.collapsedIds?.includes(selectedNode.id) ? 'Expand children' : 'Collapse children'}</button>}</div>}
       </div>
