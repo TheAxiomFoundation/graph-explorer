@@ -2,7 +2,7 @@
   "name": "@axiom-foundation/graph-explorer",
   "version": "0.4.6",
   "description": "An embeddable graph explorer for dependencies, evidence, agent activity, and Receipt provenance.",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
