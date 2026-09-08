@@ -1,0 +1,149 @@
+{
+  "schemaVersion": "orrery-mars-signal-source/v1",
+  "retrievalMethod": "HTTPS GET from documented public JPL Horizons API and NIST constant page",
+  "scriptSha256": "522c137f096eb58140bec50ee6609d8d1634a57f6c74e8207ad93c151267d82d",
+  "timeScale": "Horizons UT; these post-1962 epochs are UTC. Internal ephemeris scale is TDB; delta-T is retained.",
+  "geometry": "Mars center499 relative to Earth center399 at the same epoch; ICRF equatorial axes; km and seconds; no light-time or stellar-aberration corrections",
+  "snapshots": [
+    {
+      "epoch": "2026-09-08T00:00:00Z",
+      "parameters": {
+        "format": "json",
+        "COMMAND": "'499'",
+        "CENTER": "'500@399'",
+        "MAKE_EPHEM": "'YES'",
+        "OBJ_DATA": "'YES'",
+        "EPHEM_TYPE": "'VECTORS'",
+        "TLIST_TYPE": "'CAL'",
+        "TIME_TYPE": "'UT'",
+        "REF_SYSTEM": "'ICRF'",
+        "REF_PLANE": "'FRAME'",
+        "OUT_UNITS": "'KM-S'",
+        "VEC_CORR": "'NONE'",
+        "VEC_TABLE": "'3'",
+        "CSV_FORMAT": "'YES'",
+        "VEC_LABELS": "'YES'",
+        "VEC_DELTA_T": "'YES'",
+        "CAL_TYPE": "'GREGORIAN'",
+        "TIME_DIGITS": "'FRACSEC'",
+        "TLIST": "'2026-09-08 00:00:00'"
+      },
+      "capture": {
+        "sha256": "ecbe0b7692c98c42a9a116439fe2987be180aa7b5a2429cfbe29c45a5bfc432f",
+        "byteLength": 8062,
+        "file": "mars-signal-artifacts/ecbe0b7692c98c42a9a116439fe2987be180aa7b5a2429cfbe29c45a5bfc432f.json",
+        "mediaType": "application/json",
+        "url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND=%27499%27&CENTER=%27500%40399%27&MAKE_EPHEM=%27YES%27&OBJ_DATA=%27YES%27&EPHEM_TYPE=%27VECTORS%27&TLIST_TYPE=%27CAL%27&TIME_TYPE=%27UT%27&REF_SYSTEM=%27ICRF%27&REF_PLANE=%27FRAME%27&OUT_UNITS=%27KM-S%27&VEC_CORR=%27NONE%27&VEC_TABLE=%273%27&CSV_FORMAT=%27YES%27&VEC_LABELS=%27YES%27&VEC_DELTA_T=%27YES%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&TLIST=%272026-09-08+00%3A00%3A00%27",
+        "retrievalStartedAt": "2026-09-08T23:06:52.582325Z",
+        "retrievedAt": "2026-09-08T23:06:52.847578Z",
+        "httpStatus": 200,
+        "responseHeaders": {
+          "Date": "Tue, 08 Sep 2026 23:06:52 GMT",
+          "Content-Type": "application/json"
+        },
+        "timestampScope": "Local retrieval clock; no signed timestamp or independent custody attestation"
+      },
+      "signature": {
+        "source": "NASA/JPL Horizons API",
+        "version": "1.2"
+      },
+      "values": {
+        "julianDayUT": "2461291.500000000",
+        "calendarDateUT": "A.D. 2026-Sep-08 00:00:00.0000",
+        "tdbMinusUTSeconds": "69.182549",
+        "xKm": "-8.113468076759832E+07",
+        "yKm": "2.359196500769987E+08",
+        "zKm": "1.055716750747696E+08",
+        "vxKmPerSecond": "-2.956185882340097E+01",
+        "vyKmPerSecond": "-1.844054505076440E+01",
+        "vzKmPerSecond": "-7.194402863979533E+00",
+        "horizonsLTSeconds": "9.036219712073799E+02",
+        "rangeKm": "2.708990518510656E+08",
+        "rangeRateKmPerSecond": "-1.000933779596908E+01"
+      },
+      "targetEphemeris": "mar099",
+      "centerEphemeris": "DE441",
+      "eopFile": "eop.260908.p261205"
+    },
+    {
+      "epoch": "2025-01-16T00:00:00Z",
+      "parameters": {
+        "format": "json",
+        "COMMAND": "'499'",
+        "CENTER": "'500@399'",
+        "MAKE_EPHEM": "'YES'",
+        "OBJ_DATA": "'YES'",
+        "EPHEM_TYPE": "'VECTORS'",
+        "TLIST_TYPE": "'CAL'",
+        "TIME_TYPE": "'UT'",
+        "REF_SYSTEM": "'ICRF'",
+        "REF_PLANE": "'FRAME'",
+        "OUT_UNITS": "'KM-S'",
+        "VEC_CORR": "'NONE'",
+        "VEC_TABLE": "'3'",
+        "CSV_FORMAT": "'YES'",
+        "VEC_LABELS": "'YES'",
+        "VEC_DELTA_T": "'YES'",
+        "CAL_TYPE": "'GREGORIAN'",
+        "TIME_DIGITS": "'FRACSEC'",
+        "TLIST": "'2025-01-16 00:00:00'"
+      },
+      "capture": {
+        "sha256": "fed181554ca8921567c334d17bcf4c15b8a2057e7094ac02acf11af5bcddd092",
+        "byteLength": 8062,
+        "file": "mars-signal-artifacts/fed181554ca8921567c334d17bcf4c15b8a2057e7094ac02acf11af5bcddd092.json",
+        "mediaType": "application/json",
+        "url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND=%27499%27&CENTER=%27500%40399%27&MAKE_EPHEM=%27YES%27&OBJ_DATA=%27YES%27&EPHEM_TYPE=%27VECTORS%27&TLIST_TYPE=%27CAL%27&TIME_TYPE=%27UT%27&REF_SYSTEM=%27ICRF%27&REF_PLANE=%27FRAME%27&OUT_UNITS=%27KM-S%27&VEC_CORR=%27NONE%27&VEC_TABLE=%273%27&CSV_FORMAT=%27YES%27&VEC_LABELS=%27YES%27&VEC_DELTA_T=%27YES%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&TLIST=%272025-01-16+00%3A00%3A00%27",
+        "retrievalStartedAt": "2026-09-08T23:06:52.851743Z",
+        "retrievedAt": "2026-09-08T23:06:53.109266Z",
+        "httpStatus": 200,
+        "responseHeaders": {
+          "Date": "Tue, 08 Sep 2026 23:06:53 GMT",
+          "Content-Type": "application/json"
+        },
+        "timestampScope": "Local retrieval clock; no signed timestamp or independent custody attestation"
+      },
+      "signature": {
+        "source": "NASA/JPL Horizons API",
+        "version": "1.2"
+      },
+      "values": {
+        "julianDayUT": "2460691.500000000",
+        "calendarDateUT": "A.D. 2025-Jan-16 00:00:00.0000",
+        "tdbMinusUTSeconds": "69.184346",
+        "xKm": "-4.194137682814796E+07",
+        "yKm": "7.637822778254639E+07",
+        "zKm": "4.095204161682681E+07",
+        "vxKmPerSecond": "6.409605630328201E+00",
+        "vyKmPerSecond": "4.048945783616039E+00",
+        "vzKmPerSecond": "2.118254107562757E+00",
+        "horizonsLTSeconds": "3.211545422103671E+02",
+        "rangeKm": "9.627970960711069E+07",
+        "rangeRateKmPerSecond": "1.320843708042561E+00"
+      },
+      "targetEphemeris": "mar099",
+      "centerEphemeris": "DE441",
+      "eopFile": "eop.260908.p261205"
+    }
+  ],
+  "speedOfLight": {
+    "metersPerSecond": "299792458",
+    "kilometersPerSecond": "299792.458",
+    "exact": true,
+    "capture": {
+      "sha256": "6fa541b390713c5eb4d3932a0620af7749dcd9304ee0c8224dedc33c63c90f44",
+      "byteLength": 8102,
+      "file": "mars-signal-artifacts/6fa541b390713c5eb4d3932a0620af7749dcd9304ee0c8224dedc33c63c90f44.txt",
+      "mediaType": "text/plain",
+      "url": "https://physics.nist.gov/cgi-bin/cuu/Value?c",
+      "retrievalStartedAt": "2026-09-08T23:06:53.109835Z",
+      "retrievedAt": "2026-09-08T23:06:53.957855Z",
+      "httpStatus": 200,
+      "responseHeaders": {
+        "Date": "Tue, 08 Sep 2026 23:06:53 GMT",
+        "Content-Type": "text/html"
+      },
+      "timestampScope": "Local retrieval clock; no signed timestamp or independent custody attestation"
+    }
+  }
+}

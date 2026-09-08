@@ -1,6 +1,7 @@
 import { axiomExample, thesisExample } from '../examples/adapter-examples';
 import type { GraphDocument, GraphLocation } from '../src/core';
 import { thesisWalkthrough, thesisWalkthroughBaseline, thesisWalkthroughLocation, thesisWalkthroughSteps, thesisWalkthroughDescription, thesisWalkthroughCaveat } from '../examples/thesis-walkthrough';
+import { marsSignalExamples } from '../examples/mars-signal';
 
 export interface Example {
   id: string;
@@ -10,16 +11,21 @@ export interface Example {
   baseline?: GraphDocument;
   location: GraphLocation;
   caveat?: string;
+  caveatSummary?: string;
+  caveatTone?: 'neutral' | 'warning';
+  spotlight?: { question: string; answer: string; dateLabel: string; scope: string };
   guide?: readonly { label: string; description: string; selectedId: string; focusId: string }[];
 }
 
 /** Only public native projections belong here; host applications own private data. */
 export const examples: Example[] = [
+  ...marsSignalExamples,
   {
     id: 'thesis', label: 'Thesis · recorded forecast', document: thesisWalkthrough,
     baseline: thesisWalkthroughBaseline, location: { ...thesisWalkthroughLocation, focusId: thesisWalkthroughLocation.selectedId },
     summary: thesisWalkthroughDescription,
     caveat: `${thesisWalkthroughCaveat} Comparison shows the original-attempt subset of this same snapshot, not an earlier publication. Linked source artifacts require a connection.`,
+    caveatSummary: 'Exploratory · source-review issues remain', caveatTone: 'warning',
     guide: thesisWalkthroughSteps,
   },
   {

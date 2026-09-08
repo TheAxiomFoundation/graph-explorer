@@ -1,3 +1,12 @@
+The homepage's [Mars signal example](../docs/mars-signal.md) uses recorded JPL
+Horizons geometric Earth–Mars distances for two dates and a real native Axiom
+evaluation of distance divided by the speed of light. It projects the actual
+captured inputs, executable artifacts and calculation results into a small graph.
+The result is a same-epoch distance estimate, not a live measurement or complete
+communications latency. Source files are published by an explicit digest-checked
+allowlist; unsigned execution and file hashes do not establish verified Receipt
+custody. Existing domain adapters below remain separate.
+
 The Axiom adapter accepts the viewer-facing `ProgramGraph` used by `axiom.org`
 and `axiom-api`. IDs remain legal IDs; rule, input, relation, and relation-member
 dependencies remain separate edge kinds. The adapter stores the complete source

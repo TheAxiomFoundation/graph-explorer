@@ -1,0 +1,7 @@
+{
+  "format": "axiom/build-spec/v0",
+  "root": "zz:policies/orrery/mars-light-time",
+  "modules": {
+    "zz:policies/orrery/mars-light-time": "# Astronomy demonstration arithmetic; this is not a law encoding.\n# Fixed-position geometric range divided by the exact SI speed of light.\n# The native engine supplies every computed value; no Receipt verdict is implied.\nformat: rulespec/v1\nunits:\n  - name: km/s\n    kind: custom\n    label: kilometers per second\n  - name: s\n    kind: custom\n    label: seconds\n  - name: min\n    kind: custom\n    label: minutes\nrules:\n  - name: speed_of_light_km_per_second\n    kind: parameter\n    dtype: Decimal\n    unit: km/s\n    versions:\n      - effective_from: 1900-01-01\n        formula: \"299792.458\"\n  - name: fixed_position_one_way_seconds\n    kind: derived\n    entity: Observation\n    dtype: Decimal\n    unit: s\n    period: Day\n    versions:\n      - effective_from: 1900-01-01\n        formula: range_km / speed_of_light_km_per_second\n  - name: fixed_position_one_way_minutes\n    kind: derived\n    entity: Observation\n    dtype: Decimal\n    unit: min\n    period: Day\n    versions:\n      - effective_from: 1900-01-01\n        formula: fixed_position_one_way_seconds / 60\n"
+  }
+}

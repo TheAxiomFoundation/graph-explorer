@@ -1,0 +1,135 @@
+[
+  {
+    "sourcePath": "examples/mars-signal-artifacts/ecbe0b7692c98c42a9a116439fe2987be180aa7b5a2429cfbe29c45a5bfc432f.json",
+    "extension": "json",
+    "sha256": "ecbe0b7692c98c42a9a116439fe2987be180aa7b5a2429cfbe29c45a5bfc432f",
+    "byteLength": 8062,
+    "role": "Captured JPL Horizons response \u00b7 2026-09-08"
+  },
+  {
+    "sourcePath": "examples/mars-signal-artifacts/fed181554ca8921567c334d17bcf4c15b8a2057e7094ac02acf11af5bcddd092.json",
+    "extension": "json",
+    "sha256": "fed181554ca8921567c334d17bcf4c15b8a2057e7094ac02acf11af5bcddd092",
+    "byteLength": 8062,
+    "role": "Captured JPL Horizons response \u00b7 2025-01-16"
+  },
+  {
+    "sourcePath": "examples/mars-signal-artifacts/6fa541b390713c5eb4d3932a0620af7749dcd9304ee0c8224dedc33c63c90f44.txt",
+    "extension": "txt",
+    "sha256": "6fa541b390713c5eb4d3932a0620af7749dcd9304ee0c8224dedc33c63c90f44",
+    "byteLength": 8102,
+    "role": "Captured NIST constant page \u00b7 inert original HTML"
+  },
+  {
+    "sourcePath": "examples/mars-axiom-artifacts/4ef3f773706237ccdf5704143f97d71afd951f6cab311110e541c76aea5b7890.json",
+    "extension": "json",
+    "sha256": "4ef3f773706237ccdf5704143f97d71afd951f6cab311110e541c76aea5b7890",
+    "byteLength": 957,
+    "role": "native runtime capabilities"
+  },
+  {
+    "sourcePath": "examples/mars-axiom.rulespec.yaml",
+    "extension": "yaml",
+    "sha256": "cc51c2ebbfa50fee82b75124b7f15f5c8cba20b74438fbaa855a8a8fd6ec8491",
+    "byteLength": 1060,
+    "role": "authored astronomy RuleSpec source; not a law encoding"
+  },
+  {
+    "sourcePath": "examples/mars-axiom-build.json",
+    "extension": "json",
+    "sha256": "58b93cebc274ba60344c2b551dd9f38b6eba356cad2e2716d2ec946911f88d20",
+    "byteLength": 1253,
+    "role": "explicit native build request"
+  },
+  {
+    "sourcePath": "examples/mars-axiom-artifacts/1387bdeb75a86cdbb16f70e35aad862797a1404daad3769d78fad00a88c7e4ae.json",
+    "extension": "json",
+    "sha256": "1387bdeb75a86cdbb16f70e35aad862797a1404daad3769d78fad00a88c7e4ae",
+    "byteLength": 641,
+    "role": "native compile response"
+  },
+  {
+    "sourcePath": "examples/mars-axiom-artifacts/7d9454507578227730c3f5cf561929a9a9173dcf97723994976bd5f1383d9bef.json",
+    "extension": "json",
+    "sha256": "7d9454507578227730c3f5cf561929a9a9173dcf97723994976bd5f1383d9bef",
+    "byteLength": 5953,
+    "role": "unsigned native development bundle"
+  },
+  {
+    "sourcePath": "examples/mars-axiom-artifacts/0eafa44efacc19445483a511137eeb2a9f79c14c38acd0c12871390dfef49d7c.json",
+    "extension": "json",
+    "sha256": "0eafa44efacc19445483a511137eeb2a9f79c14c38acd0c12871390dfef49d7c",
+    "byteLength": 3123,
+    "role": "native compiled RuleSpec artifact"
+  },
+  {
+    "sourcePath": "examples/mars-axiom-artifacts/48cc4376fb8db4ae45c09be7ea08ba5ac5b6ca53cd04440766639be93da32ca3.json",
+    "extension": "json",
+    "sha256": "48cc4376fb8db4ae45c09be7ea08ba5ac5b6ca53cd04440766639be93da32ca3",
+    "byteLength": 862,
+    "role": "exact native execution request"
+  },
+  {
+    "sourcePath": "examples/mars-axiom-artifacts/0883bb4217e19f696e41291110618d7f900d3792ca282eb52f91d9b377ce1459.json",
+    "extension": "json",
+    "sha256": "0883bb4217e19f696e41291110618d7f900d3792ca282eb52f91d9b377ce1459",
+    "byteLength": 4745,
+    "role": "full native execution result and trace; unsigned"
+  },
+  {
+    "sourcePath": "examples/mars-axiom-artifacts/acb54d103c64f7833f0297a386bcb30f448a0cb89644c5d6ffcd03658bc6e727.json",
+    "extension": "json",
+    "sha256": "acb54d103c64f7833f0297a386bcb30f448a0cb89644c5d6ffcd03658bc6e727",
+    "byteLength": 862,
+    "role": "exact native execution request"
+  },
+  {
+    "sourcePath": "examples/mars-axiom-artifacts/ccbabeec2403b8bba26ea63e527674d8b8b3e307b2996f8cba77411e38d230ac.json",
+    "extension": "json",
+    "sha256": "ccbabeec2403b8bba26ea63e527674d8b8b3e307b2996f8cba77411e38d230ac",
+    "byteLength": 4741,
+    "role": "full native execution result and trace; unsigned"
+  },
+  {
+    "sourcePath": "examples/mars-signal-horizons.json",
+    "extension": "json",
+    "sha256": "519e922a995d0983ca8877be8d5da5b3f8bced996300471afe5ebef49bb52360",
+    "byteLength": 6631,
+    "role": "Source query settings and retrieval record"
+  },
+  {
+    "sourcePath": "examples/mars-axiom-run.json",
+    "extension": "json",
+    "sha256": "3d20e13997856f0df7414a7e384e555c6e420e8d4241b5419aac9c7d7c5a4b7e",
+    "byteLength": 24585,
+    "role": "Actual Axiom execution record"
+  },
+  {
+    "sourcePath": "examples/mars-signal-capture.py",
+    "extension": "txt",
+    "sha256": "522c137f096eb58140bec50ee6609d8d1634a57f6c74e8207ad93c151267d82d",
+    "byteLength": 5486,
+    "role": "Executed public source capture script"
+  },
+  {
+    "sourcePath": "examples/mars-axiom-capture.py",
+    "extension": "txt",
+    "sha256": "c424d8e1b3431fe3e86147f2c85e0a5712041a7daf048a9c86809f0c214edfba",
+    "byteLength": 9397,
+    "role": "Executed native Axiom capture script"
+  },
+  {
+    "sourcePath": "examples/mars-signal-check.py",
+    "extension": "txt",
+    "sha256": "be7bf7bf0b6a4c42b546a3fd6ba50bbb09700055f2629f45bc49e3eef1434b13",
+    "byteLength": 6630,
+    "role": "Executed numerical and byte consistency checks"
+  },
+  {
+    "sourcePath": "examples/mars-signal-checks.json",
+    "extension": "json",
+    "sha256": "cf42ead2df0b570ebad15a735ca4caa12c9b2d3a5e408d2753872291aa0edb3d",
+    "byteLength": 6281,
+    "role": "Recorded byte and numerical check results"
+  }
+]

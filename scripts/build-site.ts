@@ -1,7 +1,9 @@
-import { lstat, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { lstat, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderOfflineHtml, readStandaloneAssets } from '../src/export';
+import { marsSignalArtifacts } from '../examples/mars-signal';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const out = join(root, 'site-dist');
@@ -32,5 +34,22 @@ const titleStart = html.indexOf(`<title>${titleSlot}`) + '<title>'.length;
 if (titleStart < '<title>'.length || titleStart + titleSlot.length > start) throw new Error('The trusted offline exporter title element was not found');
 // Preserve the exporter markup/viewer; only an escaped title and JSON are inserted.
 await writeFile(join(out, 'offline-shell.json'), JSON.stringify({ titlePrefix: html.slice(0, titleStart), prefix: html.slice(titleStart + titleSlot.length, start), suffix: html.slice(end) }));
+// Publish only reviewed, content-addressed Mars captures referenced by the demo.
+// Never copy a source directory or use a graph-supplied path as a build input.
+const exampleRoot = await realpath(join(root, 'examples'));
+for (const artifact of marsSignalArtifacts) {
+  if (!/^examples\/mars-(signal|axiom)(?:[./-])/.test(artifact.sourcePath)
+    || artifact.sourcePath.split('/').some(part => part === '.' || part === '..')
+    || !/^[a-f0-9]{64}$/.test(artifact.sha256)
+    || !['json', 'txt', 'yaml'].includes(artifact.extension)) throw new Error('Invalid Mars artifact allowlist entry');
+  const source = resolve(root, artifact.sourcePath);
+  const inside = relative(join(root, 'examples'), source);
+  if (inside === '..' || inside.startsWith(`..${sep}`) || !(await lstat(source)).isFile()
+    || !(await realpath(source)).startsWith(`${exampleRoot}${sep}`)) throw new Error('Mars artifact must be a regular example file');
+  const bytes = await readFile(source);
+  if (createHash('sha256').update(bytes).digest('hex') !== artifact.sha256) throw new Error(`Mars artifact digest mismatch: ${artifact.sourcePath}`);
+  await mkdir(join(out, 'artifacts/mars'), { recursive: true });
+  await writeFile(join(out, 'artifacts/mars', `${artifact.sha256}.${artifact.extension}`), bytes);
+}
 await writeFile(join(out, '.nojekyll'), '');
 console.log(`Built public Orrery preview at ${out}. Serve this directory at any path.`);

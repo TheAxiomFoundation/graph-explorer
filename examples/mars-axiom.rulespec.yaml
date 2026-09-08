@@ -1,0 +1,40 @@
+# Astronomy demonstration arithmetic; this is not a law encoding.
+# Fixed-position geometric range divided by the exact SI speed of light.
+# The native engine supplies every computed value; no Receipt verdict is implied.
+format: rulespec/v1
+units:
+  - name: km/s
+    kind: custom
+    label: kilometers per second
+  - name: s
+    kind: custom
+    label: seconds
+  - name: min
+    kind: custom
+    label: minutes
+rules:
+  - name: speed_of_light_km_per_second
+    kind: parameter
+    dtype: Decimal
+    unit: km/s
+    versions:
+      - effective_from: 1900-01-01
+        formula: "299792.458"
+  - name: fixed_position_one_way_seconds
+    kind: derived
+    entity: Observation
+    dtype: Decimal
+    unit: s
+    period: Day
+    versions:
+      - effective_from: 1900-01-01
+        formula: range_km / speed_of_light_km_per_second
+  - name: fixed_position_one_way_minutes
+    kind: derived
+    entity: Observation
+    dtype: Decimal
+    unit: min
+    period: Day
+    versions:
+      - effective_from: 1900-01-01
+        formula: fixed_position_one_way_seconds / 60

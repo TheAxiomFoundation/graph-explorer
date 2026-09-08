@@ -12,7 +12,26 @@ import './style.css';
 const REPOSITORY = 'https://github.com/TheAxiomFoundation/orrery';
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_LOCAL_SNAPSHOTS = 5;
-const initialExample = () => examples.find(item => item.id === new URLSearchParams(window.location.search).get('example')) ?? examples[0];
+const initialExample = (): Example => {
+  const params = new URLSearchParams(window.location.search);
+  const explicit = examples.find(item => item.id === params.get('example'));
+  if (explicit) return explicit;
+  // A local-file URL must never be mistaken for a public dataset.
+  if (params.has('example')) return examples[0];
+  const location = decodeLocation(window.location.hash);
+  // Earlier releases defaulted to Thesis, so their copied hashes omit example=.
+  const selected = location.selectedId && examples.find(item => (location.selectedType === 'edge' ? item.document.edges : item.document.nodes).some(record => record.id === location.selectedId));
+  const focused = location.focusId && examples.find(item => item.document.nodes.some(record => record.id === location.focusId));
+  // Old Thesis links can retain only search/view state after selection is cleared.
+  const legacy = window.location.hash && examples.find(item => item.id === 'thesis');
+  return selected || focused || legacy || examples[0];
+};
+const canonicalizeLegacyExample = (example: Example) => {
+  const url = new URL(window.location.href);
+  if (url.searchParams.has('example') || example.id === examples[0].id) return;
+  url.searchParams.set('example', example.id);
+  window.history.replaceState(window.history.state, '', url);
+};
 const localFileRequested = () => new URLSearchParams(window.location.search).get('example') === 'local';
 const localFileReminder = 'Local files are not stored in links. Open your graph JSON again to restore this view.';
 const initialLocation = (example: Example) => localFileRequested() ? example.location : window.location.hash ? decodeLocation(window.location.hash) : example.location;
@@ -49,6 +68,7 @@ function App() {
   const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [localId, setLocalId] = useState<string>();
+  const [inspectorRequestKey, setInspectorRequestKey] = useState<number>();
   const fileInput = useRef<HTMLInputElement>(null);
   const workspace = useRef<HTMLElement>(null);
   const shellPromise = useRef<Promise<OfflineShell> | undefined>(undefined);
@@ -66,7 +86,9 @@ function App() {
   useEffect(() => {
     const sync = () => {
       cancelPendingImport();
+      setInspectorRequestKey(undefined);
       const next = initialExample();
+      canonicalizeLegacyExample(next);
       // An imported graph exists only in this tab. History cannot fetch its bytes.
       if (new URLSearchParams(window.location.search).get('example') !== 'local') {
         setImported(undefined); setLocalId(undefined); setExample(next);
@@ -85,22 +107,25 @@ function App() {
       setLocation(window.location.hash ? decodeLocation(window.location.hash) : isLocal ? {} : next.location);
     };
     window.addEventListener('popstate', sync); window.addEventListener('hashchange', sync);
-    if (localFileRequested()) sync();
+    if (localFileRequested() || (!new URLSearchParams(window.location.search).has('example') && window.location.hash)) sync();
     return () => { window.removeEventListener('popstate', sync); window.removeEventListener('hashchange', sync); };
   }, [cancelPendingImport]);
 
   const navigate = (next: GraphLocation) => {
     cancelPendingImport();
     const hash = encodeLocation(next);
-    if (hash !== window.location.hash) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('example', imported ? 'local' : example.id); url.hash = hash;
+    if (url.href !== window.location.href) {
       const onlyQueryChanged = encodeLocation({ ...next, query: undefined }) === encodeLocation({ ...location, query: undefined });
-      window.history[onlyQueryChanged ? 'replaceState' : 'pushState'](window.history.state, '', `${window.location.pathname}${window.location.search}${hash}`);
+      window.history[onlyQueryChanged ? 'replaceState' : 'pushState'](window.history.state, '', url);
     }
     setLocation(next);
   };
 
   const changeExample = (id: string) => {
     cancelPendingImport();
+    setInspectorRequestKey(undefined);
     const next = examples.find(item => item.id === id) ?? examples[0];
     setExample(next); setImported(undefined); setLocalId(undefined); setError(''); setStatus(''); setLocation(next.location);
     const url = new URL(window.location.href); url.searchParams.set('example', next.id); url.hash = encodeLocation(next.location);
@@ -120,6 +145,7 @@ function App() {
       const nextLocalId = crypto.randomUUID();
       localSnapshots.current.set(nextLocalId, { document: graph, name: file.name });
       while (localSnapshots.current.size > MAX_LOCAL_SNAPSHOTS) localSnapshots.current.delete(localSnapshots.current.keys().next().value!);
+      setInspectorRequestKey(undefined);
       setImported(graph); setImportedName(file.name); setLocation({}); setLocalId(nextLocalId);
       const url = new URL(window.location.href); url.searchParams.set('example', 'local'); url.hash = '';
       window.history.pushState({ orreryLocalId: nextLocalId }, '', url);
@@ -154,9 +180,12 @@ function App() {
   return <>
     <header className="site-header"><a className="maker" href="https://axiom-foundation.org" aria-label="Axiom Foundation">An instrument by <strong>Axiom</strong></a><nav aria-label="Main navigation"><a href={`${REPOSITORY}#readme`}>Documentation <span aria-hidden="true">↗</span></a><a href={REPOSITORY}>Source <span aria-hidden="true">↗</span></a><span className="preview-label">Public preview</span></nav></header>
     <main>
-      <section className="hero" aria-labelledby="orrery-title">
-        <div className="hero-name"><span className="orbital-mark" aria-hidden="true"><i /><i /><i /></span><h1 id="orrery-title">Orrery</h1></div>
-        <div className="hero-promise"><h2>See the system.<br /> Trace the work.</h2><p>Explore the connections, sources, and contributions<br className="desktop-break" /> behind a result.</p></div>
+      <section className={`hero${!imported && example.spotlight ? ' has-answer' : ''}`} aria-labelledby="orrery-title">
+        <div className="hero-identity"><div className="hero-name"><span className="orbital-mark" aria-hidden="true"><i /><i /><i /></span><h1 id="orrery-title">Orrery</h1></div>{!imported && example.spotlight && <p className="hero-tagline">See the system. Trace the work.</p>}</div>
+        {!imported && example.spotlight ? <>
+          <div className="answer-question"><span className="section-label">A question you can trace</span><h2>{example.spotlight.question}</h2><p>{example.spotlight.scope}</p></div>
+          <div className="answer-reading" aria-live="polite"><span className="answer-approximation">About</span><strong className="answer-value">{example.spotlight.answer.replace(/^About\s+/i, '')}</strong><span className="answer-date">For {example.spotlight.dateLabel}</span></div>
+        </> : <div className="hero-promise"><h2>See the system.<br /> Trace the work.</h2><p>Explore the connections, sources, and contributions<br className="desktop-break" /> behind a result.</p></div>}
       </section>
       <section className="demo-section" ref={workspace} aria-label="Interactive graph explorer">
         <div className="demo-toolbar">
@@ -164,12 +193,12 @@ function App() {
           <div className="demo-actions"><button className="button" onClick={() => fileInput.current?.click()} disabled={loading}>{loading ? 'Opening…' : 'Open graph JSON'} <span aria-hidden="true">↑</span></button><button className="button primary" disabled={exporting} onClick={exportHtml}>{exporting ? 'Preparing report…' : 'Save offline report'} <span aria-hidden="true">↓</span></button></div>
           <input ref={fileInput} type="file" accept=".json,application/json" aria-label="Open a local graph JSON file" className="file-input" onChange={event => void importFile(event.target.files?.[0])} />
         </div>
-        <div className="example-context"><span className="example-indicator" aria-hidden="true" /><p>{imported ? 'Local graph. The five most recent imports stay in this tab’s memory. Nothing is uploaded; links open only when you choose them.' : example.summary}</p><button className="text-action" onClick={() => { downloadFile(prepareGraphExport(current).json, `${fileStem(current.title)}.json`, 'application/json'); setStatus('Graph JSON saved.'); }}>Download JSON <span aria-hidden="true">↓</span></button></div>
+        <div className="example-context">{!imported && example.spotlight ? <div className="recorded-dates"><span>Compare dates</span><div>{examples.filter(item => item.spotlight).map(item => <button key={item.id} type="button" data-example={item.id} aria-pressed={item.id === example.id} onClick={() => changeExample(item.id)}>{item.spotlight!.dateLabel}</button>)}</div></div> : <><span className="example-indicator" aria-hidden="true" /><p>{imported ? 'Local graph. The five most recent imports stay in this tab’s memory. Nothing is uploaded; links open only when you choose them.' : example.summary}</p></>}<button className="text-action" onClick={() => { downloadFile(prepareGraphExport(current).json, `${fileStem(current.title)}.json`, 'application/json'); setStatus('Graph JSON saved.'); }}>Download JSON <span aria-hidden="true">↓</span></button></div>
         {error && <div className="site-message site-error" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error">×</button></div>}
         <div className="status-message" role="status" aria-live="polite">{status}</div>
-        {!imported && example.caveat && <details className="example-caveat"><summary>Exploratory · source-review issues remain</summary><p>{example.caveat}</p></details>}
-        {!imported && example.guide && <div className="walkthrough" aria-label="Trace this result"><span>Follow the work</span>{example.guide.map((step, index) => <button key={step.selectedId} title={step.description} onClick={() => navigate({ ...location, selectedId: step.selectedId, selectedType: 'node', focusId: step.focusId, depth: 1, direction: 'both' })}><small>{String(index + 1).padStart(2, '0')}</small>{step.label}<span aria-hidden="true">↗</span></button>)}</div>}
-        <div className="viewer-shell"><ViewerBoundary resetKey={resetKey} onReset={() => changeExample(examples[0].id)}><GraphExplorer key={resetKey} document={current} baseline={baseline} location={location} onLocationChange={navigate} /></ViewerBoundary></div>
+        {!imported && example.caveat && <details className={`example-caveat${example.caveatTone === 'warning' ? ' is-warning' : ''}`}><summary>{example.caveatSummary ?? (example.spotlight ? 'About this estimate' : 'About this example')}</summary><p>{example.caveat}</p></details>}
+        {!imported && example.guide && <div className="walkthrough" aria-label="Trace this result"><span>Follow the work</span>{example.guide.map((step, index) => <button key={step.selectedId} data-selected-id={step.selectedId} title={step.description} onClick={() => { navigate({ ...location, selectedId: step.selectedId, selectedType: 'node', focusId: step.focusId, depth: 1, direction: 'both' }); setInspectorRequestKey(value => (value ?? 0) + 1); }}><small>{String(index + 1).padStart(2, '0')}</small>{step.label}<span aria-hidden="true">↗</span></button>)}</div>}
+        <div className="viewer-shell"><ViewerBoundary resetKey={resetKey} onReset={() => changeExample(examples[0].id)}><GraphExplorer key={resetKey} document={current} baseline={baseline} location={location} onLocationChange={navigate} inspectorRequestKey={inspectorRequestKey} /></ViewerBoundary></div>
       </section>
       <section className="explanation" aria-labelledby="explanation-title"><div className="explanation-intro"><span className="section-label">From a result to its reasons</span><h2 id="explanation-title">Keep the connections<br />in view.</h2><p>A calculation, a forecast, a plan. Orrery gives each piece a place—and lets you follow what connects them.</p></div><div className="explanation-details"><article><span className="detail-number">01</span><div><h3>Relationships with meaning</h3><p>Distinguish a dependency from a citation or a containing record. Keep the meaning your system gave each edge.</p></div></article><article><span className="detail-number">02</span><div><h3>The work behind each node</h3><p>Inspect source records, agent activity, and revisions. Keep authorship separate from execution, and supplied evidence separate from observed use.</p></div></article><article><span className="detail-number">03</span><div><h3>Receipts, with their scope intact</h3><p>Attach provenance declarations and separately supplied verification. A Receipt establishes its stated custody scope; it does not establish that a claim is correct.</p></div></article></div></section>
       <section className="bring-graph" aria-labelledby="bring-title"><div><span className="section-label">Open source · MIT</span><h2 id="bring-title">Your system.<br />A shared instrument.</h2><p>Embed Orrery in your app, or open a graph here.<br />Keep your domain logic and your data where they belong.</p><div className="bring-actions"><button className="button" onClick={() => fileInput.current?.click()}>Open a local graph <span aria-hidden="true">↑</span></button><a href={`${REPOSITORY}/blob/main/docs/react-hosts.md`}>Embedding guide <span aria-hidden="true">↗</span></a></div></div><div className="integration-note"><span className="section-label">React embedding</span><pre><code>{'import { Orrery } from\n  "@axiom-foundation/orrery/react";\nimport "@axiom-foundation/orrery/style.css";\n\n<Orrery document={graph} />'}</code></pre><p>Works with React 18 and 19. Portable graph JSON.<br />Self-contained HTML reports.</p></div></section>

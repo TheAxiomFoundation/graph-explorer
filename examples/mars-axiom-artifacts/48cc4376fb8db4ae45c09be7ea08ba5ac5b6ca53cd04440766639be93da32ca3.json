@@ -1,0 +1,36 @@
+{
+  "mode": "explain",
+  "dataset": {
+    "inputs": [
+      {
+        "name": "zz:policies/orrery/mars-light-time#input.range_km",
+        "entity": "Observation",
+        "entity_id": "mars-range:2026-09-08T00:00:00Z",
+        "interval": {
+          "start": "2026-09-08",
+          "end": "2026-09-08"
+        },
+        "value": {
+          "kind": "decimal",
+          "value": "270899051.8510656"
+        }
+      }
+    ],
+    "relations": []
+  },
+  "queries": [
+    {
+      "entity_id": "mars-range:2026-09-08T00:00:00Z",
+      "period": {
+        "period_kind": "custom",
+        "name": "Day",
+        "start": "2026-09-08",
+        "end": "2026-09-08"
+      },
+      "outputs": [
+        "zz:policies/orrery/mars-light-time#fixed_position_one_way_seconds",
+        "zz:policies/orrery/mars-light-time#fixed_position_one_way_minutes"
+      ]
+    }
+  ]
+}

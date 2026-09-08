@@ -1,0 +1,29 @@
+{
+  "manifest": {
+    "format": "axiom/development-bundle/v0",
+    "assurance": "development_unsigned",
+    "root": "zz:policies/orrery/mars-light-time",
+    "engine": {
+      "repository": "https://github.com/TheAxiomFoundation/axiom-rules-engine",
+      "revision": "d142c645917817cf590e036fb99f99b2d4780e1a",
+      "version": "0.2.2",
+      "artifact_format_version": 2,
+      "dependency_lock_sha256": "e556fd5ef7f298f7be1ca68c20f765af6f667682329766a556300a0417797628",
+      "execution_host_sha256": "1a2b75ad270523e7dd31d1f32e582853ebad839c678aab76acbbe288866f81a8"
+    },
+    "compile_options": {
+      "strict_namespaces": true,
+      "strict_relation_entities": true
+    },
+    "source_hashes": {
+      "zz:policies/orrery/mars-light-time": "cc51c2ebbfa50fee82b75124b7f15f5c8cba20b74438fbaa855a8a8fd6ec8491"
+    },
+    "source_closure_sha256": "9ba3fc432b42364fb4ca374e7d728c154541babc3a305dac30de23cb33ce4088",
+    "artifact_sha256": "0eafa44efacc19445483a511137eeb2a9f79c14c38acd0c12871390dfef49d7c"
+  },
+  "manifest_sha256": "bb9c08f0701709f9af624c37388b4254f5fcd457dd5123c4e2d6736d301ed27b",
+  "modules": {
+    "zz:policies/orrery/mars-light-time": "# Astronomy demonstration arithmetic; this is not a law encoding.\n# Fixed-position geometric range divided by the exact SI speed of light.\n# The native engine supplies every computed value; no Receipt verdict is implied.\nformat: rulespec/v1\nunits:\n  - name: km/s\n    kind: custom\n    label: kilometers per second\n  - name: s\n    kind: custom\n    label: seconds\n  - name: min\n    kind: custom\n    label: minutes\nrules:\n  - name: speed_of_light_km_per_second\n    kind: parameter\n    dtype: Decimal\n    unit: km/s\n    versions:\n      - effective_from: 1900-01-01\n        formula: \"299792.458\"\n  - name: fixed_position_one_way_seconds\n    kind: derived\n    entity: Observation\n    dtype: Decimal\n    unit: s\n    period: Day\n    versions:\n      - effective_from: 1900-01-01\n        formula: range_km / speed_of_light_km_per_second\n  - name: fixed_position_one_way_minutes\n    kind: derived\n    entity: Observation\n    dtype: Decimal\n    unit: min\n    period: Day\n    versions:\n      - effective_from: 1900-01-01\n        formula: fixed_position_one_way_seconds / 60\n"
+  },
+  "artifact_json": "{\"artifact_format_version\":2,\"engine_version\":\"0.2.2\",\"metadata\":{\"evaluation_order\":[\"fixed_position_one_way_seconds\",\"fixed_position_one_way_minutes\"],\"fast_path\":{\"blockers\":[],\"compatible\":true,\"strategy\":\"generic_bulk\"},\"input_catalog\":[{\"canonical_request_name\":\"zz:policies/orrery/mars-light-time#input.range_km\",\"request_names\":[\"zz:policies/orrery/mars-light-time#input.range_km\"],\"slot\":\"range_km\"}]},\"program\":{\"derived\":[{\"dtype\":\"decimal\",\"entity\":\"Observation\",\"expr\":{\"kind\":\"div\",\"left\":{\"kind\":\"input\",\"name\":\"range_km\"},\"right\":{\"index\":{\"kind\":\"literal\",\"value\":{\"kind\":\"integer\",\"value\":0}},\"kind\":\"parameter_lookup\",\"parameter\":\"speed_of_light_km_per_second\"}},\"id\":\"zz:policies/orrery/mars-light-time#fixed_position_one_way_seconds\",\"name\":\"fixed_position_one_way_seconds\",\"period\":\"Day\",\"semantics\":\"scalar\",\"source\":null,\"source_url\":null,\"unit\":\"s\",\"versions\":[{\"effective_from\":\"1900-01-01\",\"expr\":{\"kind\":\"div\",\"left\":{\"kind\":\"input\",\"name\":\"range_km\"},\"right\":{\"index\":{\"kind\":\"literal\",\"value\":{\"kind\":\"integer\",\"value\":0}},\"kind\":\"parameter_lookup\",\"parameter\":\"speed_of_light_km_per_second\"}},\"semantics\":\"scalar\"}]},{\"dtype\":\"decimal\",\"entity\":\"Observation\",\"expr\":{\"kind\":\"div\",\"left\":{\"kind\":\"derived\",\"name\":\"fixed_position_one_way_seconds\"},\"right\":{\"kind\":\"literal\",\"value\":{\"kind\":\"decimal\",\"value\":\"60\"}}},\"id\":\"zz:policies/orrery/mars-light-time#fixed_position_one_way_minutes\",\"name\":\"fixed_position_one_way_minutes\",\"period\":\"Day\",\"semantics\":\"scalar\",\"source\":null,\"source_url\":null,\"unit\":\"min\",\"versions\":[{\"effective_from\":\"1900-01-01\",\"expr\":{\"kind\":\"div\",\"left\":{\"kind\":\"derived\",\"name\":\"fixed_position_one_way_seconds\"},\"right\":{\"kind\":\"literal\",\"value\":{\"kind\":\"decimal\",\"value\":\"60\"}}},\"semantics\":\"scalar\"}]}],\"parameters\":[{\"id\":\"zz:policies/orrery/mars-light-time#speed_of_light_km_per_second\",\"indexed_by\":null,\"name\":\"speed_of_light_km_per_second\",\"source\":null,\"source_url\":null,\"unit\":\"km/s\",\"versions\":[{\"effective_from\":\"1900-01-01\",\"values\":{\"0\":{\"kind\":\"decimal\",\"value\":\"299792.458\"}}}]}],\"relations\":[],\"units\":[{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"GBP\"},{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"USD\"},{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"EUR\"},{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"CHF\"},{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"NOK\"},{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"GHS\"},{\"kind\":\"currency\",\"minor_units\":0,\"name\":\"GHp\"},{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"NGN\"},{\"kind\":\"currency\",\"minor_units\":0,\"name\":\"UGX\"},{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"ZMW\"},{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"ETB\"},{\"kind\":\"currency\",\"minor_units\":0,\"name\":\"RWF\"},{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"TZS\"},{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"DKK\"},{\"kind\":\"currency\",\"minor_units\":2,\"name\":\"AMD\"},{\"kind\":\"count\",\"name\":\"count\"},{\"kind\":\"count\",\"name\":\"person\"},{\"kind\":\"ratio\",\"name\":\"ratio\"},{\"kind\":\"custom\",\"label\":\"judgment\",\"name\":\"status\"},{\"kind\":\"custom\",\"label\":\"kilometers per second\",\"name\":\"km/s\"},{\"kind\":\"custom\",\"label\":\"seconds\",\"name\":\"s\"},{\"kind\":\"custom\",\"label\":\"minutes\",\"name\":\"min\"}]}}"
+}

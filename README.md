@@ -10,10 +10,16 @@ The shared package owns navigation and presentation. Axiom, Microcosm, PlanGraph
 
 The preview opens local graph JSON in your browser without uploading it. Explore
 the supplied examples, follow their sources, and save an interactive offline
-HTML report. Its Thesis walkthrough traces a real published exploratory forecast
-through evidence, generation, source review and revision. Outstanding scientific
-review findings remain visible; artifact integrity and Receipt verification are
-separate from correctness.
+HTML report. The homepage starts with a simple question: how long would a message
+take to reach Mars? Two recorded dates connect real JPL planetary distances to
+a calculation executed by Axiom. Follow the inputs, compare the results, and
+inspect the captured sources and native calculation trace. See the
+[Mars example](docs/mars-signal.md) for its approximation and reproduction steps.
+
+The Thesis walkthrough remains available as a deeper example, tracing a real
+published exploratory forecast through evidence, generation, source review and
+revision. Outstanding scientific review findings remain visible; artifact
+integrity and Receipt verification are separate from correctness.
 
 ## Run locally
 
