@@ -1,6 +1,6 @@
 {
   "name": "@axiom-foundation/graph-explorer",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "An embeddable graph explorer for dependencies, evidence, agent activity, and Receipt provenance.",
   "license": "Apache-2.0",
   "type": "module",
@@ -21,6 +21,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test tests",
     "build": "bun scripts/build.ts",
+    "check:dist": "node scripts/check-standalone.mjs && NODE_ENV=production node scripts/check-production-react.mjs",
     "export": "bun scripts/export.ts"
   },
   "peerDependencies": { "react": ">=18 <20", "react-dom": ">=18 <20" },

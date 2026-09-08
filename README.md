@@ -14,6 +14,7 @@ bun run dev
 bun test
 bun run typecheck
 bun run build
+bun run check:dist
 python3 -m unittest discover -s tests -p '*_test.py'
 ```
 
@@ -73,7 +74,7 @@ Graph JSON cannot verify itself. Receipt references contain no executable config
 After building and packing this repository, install the tarball in a Node 20+ project. The installed CLI uses bundled assets and needs no Bun or source checkout:
 
 ```sh
-npm install /path/to/axiom-foundation-graph-explorer-0.2.0.tgz
+npm install /path/to/axiom-foundation-graph-explorer-0.2.1.tgz
 npx graph-explorer --input graph.json --output report.html
 ```
 
@@ -90,6 +91,8 @@ bun run export --input graph.json --output output/report.html \
 The single HTML file bundles the viewer, styles, and supplied graph. It needs no server, CDN, or network to render. Referenced source files and reports are links, not automatically included. Export is an explicit operation over the supplied snapshot: hiding fields in the UI does not redact them. Make a separate appropriately scoped snapshot before sharing; its changed bytes need their own assessment.
 
 Node hosts can import `exportGraphHtml` from `@axiom-foundation/graph-explorer/export` with `{ input, output, baseline?, assessment? }`. Inputs are local paths supplied by the host. Export validates the snapshot and any separately supplied assessment, hashes the exact source bytes, and refuses to overwrite input files or their aliases.
+
+Version 0.2.1 fixes two packaging failures in 0.1.0 and 0.2.0: the offline classic script retained a dependency's `import.meta.env`, and the React entry emitted a development-only JSX runtime that failed under `NODE_ENV=production`. Use 0.2.1 or later. After every build, `bun run check:dist` parses the actual exported classic script and renders the built React component in a fresh production Node process, including its host inspector and toolbar hooks. These checks complement browser interaction checks; importing a component alone does not test rendering.
 
 ## Scope of this release
 

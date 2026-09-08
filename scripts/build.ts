@@ -15,6 +15,10 @@ const adapters = (await readdir('src/adapters')).filter(file => file.endsWith('.
 const browser = await Bun.build({
   entrypoints: ['src/core/index.ts', 'src/react/index.ts', ...adapters], root: 'src', outdir: dist,
   target: 'browser', format: 'esm', splitting: true, sourcemap: 'external',
+  // Bun 1.3.12 selects the JSX runtime from this define; jsx.development alone
+  // does not switch its output. React stays external and uses the host's mode.
+  define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+  jsx: { runtime: 'automatic', development: false },
   external: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react/jsx-dev-runtime', '@xyflow/react', '@dagrejs/dagre'],
 });
 if (!browser.success) throw new Error(browser.logs.map(String).join('\n'));
@@ -23,8 +27,14 @@ if (!node.success) throw new Error(node.logs.map(String).join('\n'));
 await chmod(join(dist, 'cli.js'), 0o755);
 const standalone = await Bun.build({
   entrypoints: ['examples/main.tsx'], target: 'browser', format: 'iife', minify: true,
+  jsx: { runtime: 'automatic', development: false },
   metafile: true,
-  define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+  // The offline report runs as a classic script, without Vite's import.meta.env
+  // transform. Resolve dependencies' environment guards during bundling.
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    'import.meta.env': JSON.stringify({ MODE: 'production', PROD: true, DEV: false }),
+  },
 });
 if (!standalone.success) throw new Error(standalone.logs.map(String).join('\n'));
 const javascript = (await Promise.all(standalone.outputs.filter(file => file.path.endsWith('.js')).map(file => file.text()))).join('\n');
