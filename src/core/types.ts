@@ -122,6 +122,8 @@ export interface GraphLocation {
   selectedType?: 'node' | 'edge';
   focusId?: string;
   direction?: 'both' | 'upstream' | 'downstream';
+  depth?: number;
+  showContainment?: boolean;
   query?: string;
   kinds?: string[];
   collapsedIds?: string[];

@@ -4,10 +4,15 @@
   "description": "An embeddable graph explorer for dependencies, evidence, agent activity, and Receipt provenance.",
   "license": "Apache-2.0",
   "type": "module",
-  "files": ["dist", "README.md", "LICENSE", "scripts/receipt_bridge.py"],
+  "repository": { "type": "git", "url": "https://github.com/TheAxiomFoundation/graph-explorer.git" },
+  "homepage": "https://github.com/TheAxiomFoundation/graph-explorer",
+  "files": ["dist", "README.md", "LICENSE", "THIRD_PARTY_NOTICES", "docs", "examples/ADAPTERS.md", "src/core/types.ts", "scripts/receipt_bridge.py"],
+  "bin": { "graph-explorer": "./dist/cli.js" },
+  "engines": { "node": ">=20" },
   "exports": {
     ".": { "types": "./dist/core/index.d.ts", "import": "./dist/core/index.js" },
     "./react": { "types": "./dist/react/index.d.ts", "import": "./dist/react/index.js" },
+    "./export": { "types": "./dist/export.d.ts", "import": "./dist/export.js" },
     "./adapters/*": { "types": "./dist/adapters/*.d.ts", "import": "./dist/adapters/*.js" },
     "./style.css": "./dist/react/style.css"
   },

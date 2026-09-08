@@ -1,0 +1,346 @@
+{
+  "source": {
+    "repository": "https://github.com/ThesisInstitute/thesis",
+    "commit": "1bf1bf2c98f8d313df4f03be175c4e6f1a495c27",
+    "path": "thesis_core/contracts.py"
+  },
+  "links": {
+    "source_series": [],
+    "forecaster_version": [],
+    "legacy_import": [],
+    "source_exchange": [
+      {
+        "field": "source_series_id",
+        "target_kind": "source_series",
+        "relation": "source_series",
+        "many": false,
+        "required": true
+      }
+    ],
+    "target_version": [
+      {
+        "field": "source_series_id",
+        "target_kind": "source_series",
+        "relation": "source_series",
+        "many": false,
+        "required": true
+      }
+    ],
+    "observation": [
+      {
+        "field": "source_series_id",
+        "target_kind": "source_series",
+        "relation": "source_series",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "source_exchange_ids",
+        "target_kind": "source_exchange",
+        "relation": "source_exchange",
+        "many": true,
+        "required": true
+      }
+    ],
+    "evidence_bundle": [
+      {
+        "field": "source_series_id",
+        "target_kind": "source_series",
+        "relation": "source_series",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "observation_ids",
+        "target_kind": "observation",
+        "relation": "observation",
+        "many": true,
+        "required": true
+      }
+    ],
+    "normalization": [
+      {
+        "field": "target_version_id",
+        "target_kind": "target_version",
+        "relation": "target_version",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "source_series_id",
+        "target_kind": "source_series",
+        "relation": "source_series",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "observation_ids",
+        "target_kind": "observation",
+        "relation": "observation",
+        "many": true,
+        "required": true
+      }
+    ],
+    "evaluation_task": [
+      {
+        "field": "target_version_id",
+        "target_kind": "target_version",
+        "relation": "target_version",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "forecaster_version_id",
+        "target_kind": "forecaster_version",
+        "relation": "forecaster_version",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "evidence_bundle_id",
+        "target_kind": "evidence_bundle",
+        "relation": "evidence_bundle",
+        "many": false,
+        "required": true
+      }
+    ],
+    "experiment": [
+      {
+        "field": "task_ids",
+        "target_kind": "evaluation_task",
+        "relation": "task",
+        "many": true,
+        "required": true
+      },
+      {
+        "field": "target_version_ids",
+        "target_kind": "target_version",
+        "relation": "target_version",
+        "many": true,
+        "required": true
+      },
+      {
+        "field": "forecaster_version_ids",
+        "target_kind": "forecaster_version",
+        "relation": "forecaster_version",
+        "many": true,
+        "required": true
+      },
+      {
+        "field": "baseline_forecaster_id",
+        "target_kind": "forecaster_version",
+        "relation": "baseline_forecaster",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "normalization_ids",
+        "target_kind": "normalization",
+        "relation": "normalization",
+        "many": true,
+        "required": true
+      }
+    ],
+    "attempt": [
+      {
+        "field": "task_id",
+        "target_kind": "evaluation_task",
+        "relation": "task",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "cohort_proof_id",
+        "target_kind": "publication_proof",
+        "relation": "cohort_proof",
+        "many": false,
+        "required": false
+      }
+    ],
+    "forecast_run": [
+      {
+        "field": "attempt_id",
+        "target_kind": "attempt",
+        "relation": "attempt",
+        "many": false,
+        "required": true
+      }
+    ],
+    "attempt_result": [
+      {
+        "field": "attempt_id",
+        "target_kind": "attempt",
+        "relation": "attempt",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "run_id",
+        "target_kind": "forecast_run",
+        "relation": "run",
+        "many": false,
+        "required": false
+      },
+      {
+        "field": "reconciles_result_id",
+        "target_kind": "attempt_result",
+        "relation": "reconciles_result",
+        "many": false,
+        "required": false
+      }
+    ],
+    "publication_manifest": [
+      {
+        "field": "experiment_id",
+        "target_kind": "experiment",
+        "relation": "experiment",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "run_id",
+        "target_kind": "forecast_run",
+        "relation": "run",
+        "many": false,
+        "required": false
+      },
+      {
+        "field": "cohort_proof_id",
+        "target_kind": "publication_proof",
+        "relation": "cohort_proof",
+        "many": false,
+        "required": false
+      },
+      {
+        "field": "attempt_result_ids",
+        "target_kind": "attempt_result",
+        "relation": "attempt_result",
+        "many": true,
+        "required": true
+      }
+    ],
+    "publication_proof": [
+      {
+        "field": "manifest_id",
+        "target_kind": "publication_manifest",
+        "relation": "manifest",
+        "many": false,
+        "required": true
+      }
+    ],
+    "resolution": [
+      {
+        "field": "target_version_id",
+        "target_kind": "target_version",
+        "relation": "target_version",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "observation_id",
+        "target_kind": "observation",
+        "relation": "observation",
+        "many": false,
+        "required": true
+      }
+    ],
+    "score": [
+      {
+        "field": "publication_proof_id",
+        "target_kind": "publication_proof",
+        "relation": "publication_proof",
+        "many": false,
+        "required": false
+      },
+      {
+        "field": "attempt_result_ids",
+        "target_kind": "attempt_result",
+        "relation": "attempt_result",
+        "many": true,
+        "required": true
+      },
+      {
+        "field": "run_id",
+        "target_kind": "forecast_run",
+        "relation": "run",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "resolution_id",
+        "target_kind": "resolution",
+        "relation": "resolution",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "experiment_id",
+        "target_kind": "experiment",
+        "relation": "experiment",
+        "many": false,
+        "required": true
+      },
+      {
+        "field": "normalization_id",
+        "target_kind": "normalization",
+        "relation": "normalization",
+        "many": false,
+        "required": false
+      }
+    ]
+  },
+  "artifactFields": {
+    "source_series": [],
+    "source_exchange": [],
+    "target_version": [],
+    "forecaster_version": [
+      "prompt_template_hash",
+      "system_prompt_hash",
+      "briefing_hash",
+      "tool_policy_hash"
+    ],
+    "observation": [],
+    "evidence_bundle": [],
+    "normalization": [],
+    "evaluation_task": [],
+    "experiment": [],
+    "attempt": [
+      "command_hash",
+      "code_hash",
+      "prompt_hash",
+      "cohort_token_hash"
+    ],
+    "forecast_run": [
+      "stdout_hash",
+      "stderr_hash",
+      "raw_response_hash",
+      "prompt_hash"
+    ],
+    "attempt_result": [
+      "stdout_hash",
+      "stderr_hash",
+      "raw_response_hash",
+      "reconciliation_evidence_hashes"
+    ],
+    "publication_manifest": [
+      "artifacts",
+      "code_hash",
+      "cohort_token_hash"
+    ],
+    "publication_proof": [
+      "request_hash",
+      "token_hash",
+      "subject_hash",
+      "trust_bundle_hash"
+    ],
+    "resolution": [],
+    "score": [],
+    "legacy_import": [
+      "verifier_code_hash",
+      "custody_root_hash",
+      "manifest_hash",
+      "descriptor_hash",
+      "artifact_hashes"
+    ]
+  }
+}
