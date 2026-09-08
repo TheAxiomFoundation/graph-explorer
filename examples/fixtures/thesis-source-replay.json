@@ -1,0 +1,245 @@
+{
+  "source": {
+    "repository": "https://github.com/ThesisInstitute/thesis",
+    "commit": "1bf1bf2c98f8d313df4f03be175c4e6f1a495c27",
+    "fixturePath": "tests/fixtures/international/statcan_cpi_v41690973.json",
+    "fixtureSha256": "fc16bd01e245489023383b1504fef097a7dfbf54dde690a2be3c6667e005dbf6",
+    "adapter": "thesis_core.adapters.capture(statcan-cpi-yoy, mode=replay)",
+    "generatedAt": "2026-09-08T13:32:39.936023+00:00",
+    "limitations": "Local native-adapter replay of committed test fixture bytes. Fixture historical accuracy and original retrieval are not verified. No network retrieval, forecast generation, publication, timestamp proof, or custody verification was performed."
+  },
+  "records": [
+    {
+      "id": "3a1218540e534284f32c2977d97bffa785fa00fcfb5af1195ca95fd5dc72103b",
+      "kind": "source_series",
+      "payload": {
+        "kind": "source_series",
+        "schema_version": 1,
+        "adapter_id": "statcan-cpi-yoy",
+        "adapter_version": "official-fixtures-v1",
+        "name": "Canada CPI all-items, year-on-year (NSA)",
+        "unit": "percent",
+        "binding": {
+          "vector": 41690973,
+          "product": "18-10-0004-01",
+          "transform": "yoy_from_index_round_1",
+          "source_url": "https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods"
+        },
+        "vintage_policies": [
+          "fixed_vintage"
+        ]
+      }
+    },
+    {
+      "id": "79e50abb5c0497c97a9805b10565777df16c0989172ae6ce4c3afa53779035ea",
+      "kind": "source_exchange",
+      "payload": {
+        "kind": "source_exchange",
+        "schema_version": 1,
+        "source_series_id": "3a1218540e534284f32c2977d97bffa785fa00fcfb5af1195ca95fd5dc72103b",
+        "url": "https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods",
+        "retrieved_at": "2026-09-08T13:32:39.936023Z",
+        "status_code": 200,
+        "body": {
+          "sha256": "fc16bd01e245489023383b1504fef097a7dfbf54dde690a2be3c6667e005dbf6",
+          "bytes": 1178,
+          "media_type": "application/json"
+        },
+        "response_headers": {},
+        "request_method": "POST",
+        "request_body": {
+          "sha256": "0a1a86c786761f4a9b81c768422389d123963154c4742c0ed790f8721356d860",
+          "bytes": 36,
+          "media_type": "application/json"
+        },
+        "role": "data",
+        "mode": "replay"
+      }
+    },
+    {
+      "id": "65ca38686ba5786de288da1afa8f1a1e15aab6d5488ad9a2cd8b73d730d9ab94",
+      "kind": "observation",
+      "payload": {
+        "kind": "observation",
+        "schema_version": 1,
+        "source_series_id": "3a1218540e534284f32c2977d97bffa785fa00fcfb5af1195ca95fd5dc72103b",
+        "measurement_period": "2026-02",
+        "value": 1.8,
+        "unit": "percent",
+        "source_exchange_ids": [
+          "79e50abb5c0497c97a9805b10565777df16c0989172ae6ce4c3afa53779035ea"
+        ],
+        "retrieved_at": "2026-09-08T13:32:39.936023Z",
+        "accepted_at": "2026-09-08T13:32:39.936023Z",
+        "parser_version": "official-fixtures-v1",
+        "vintage_policy": "fixed_vintage",
+        "publication_evidence": {
+          "raw_value": "2026-03-16T08:30",
+          "timezone": "America/Toronto",
+          "source_url": "https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods",
+          "parser_version": "statcan-wds-release-time-v1",
+          "artifact": {
+            "sha256": "fc16bd01e245489023383b1504fef097a7dfbf54dde690a2be3c6667e005dbf6",
+            "bytes": 1178,
+            "media_type": "application/json"
+          }
+        }
+      }
+    },
+    {
+      "id": "58ddf681b498fa28c53c68e9466b230f6b399b32e226683817ae230be50d7085",
+      "kind": "observation",
+      "payload": {
+        "kind": "observation",
+        "schema_version": 1,
+        "source_series_id": "3a1218540e534284f32c2977d97bffa785fa00fcfb5af1195ca95fd5dc72103b",
+        "measurement_period": "2026-03",
+        "value": 2.4,
+        "unit": "percent",
+        "source_exchange_ids": [
+          "79e50abb5c0497c97a9805b10565777df16c0989172ae6ce4c3afa53779035ea"
+        ],
+        "retrieved_at": "2026-09-08T13:32:39.936023Z",
+        "accepted_at": "2026-09-08T13:32:39.936023Z",
+        "parser_version": "official-fixtures-v1",
+        "vintage_policy": "fixed_vintage",
+        "publication_evidence": {
+          "raw_value": "2026-04-20T08:30",
+          "timezone": "America/Toronto",
+          "source_url": "https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods",
+          "parser_version": "statcan-wds-release-time-v1",
+          "artifact": {
+            "sha256": "fc16bd01e245489023383b1504fef097a7dfbf54dde690a2be3c6667e005dbf6",
+            "bytes": 1178,
+            "media_type": "application/json"
+          }
+        }
+      }
+    },
+    {
+      "id": "2a55b8e725affd5bc898c99c30dab8fef178a853452974aaee86042966b1c6b8",
+      "kind": "observation",
+      "payload": {
+        "kind": "observation",
+        "schema_version": 1,
+        "source_series_id": "3a1218540e534284f32c2977d97bffa785fa00fcfb5af1195ca95fd5dc72103b",
+        "measurement_period": "2026-04",
+        "value": 2.8,
+        "unit": "percent",
+        "source_exchange_ids": [
+          "79e50abb5c0497c97a9805b10565777df16c0989172ae6ce4c3afa53779035ea"
+        ],
+        "retrieved_at": "2026-09-08T13:32:39.936023Z",
+        "accepted_at": "2026-09-08T13:32:39.936023Z",
+        "parser_version": "official-fixtures-v1",
+        "vintage_policy": "fixed_vintage",
+        "publication_evidence": {
+          "raw_value": "2026-05-19T08:30",
+          "timezone": "America/Toronto",
+          "source_url": "https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods",
+          "parser_version": "statcan-wds-release-time-v1",
+          "artifact": {
+            "sha256": "fc16bd01e245489023383b1504fef097a7dfbf54dde690a2be3c6667e005dbf6",
+            "bytes": 1178,
+            "media_type": "application/json"
+          }
+        }
+      }
+    },
+    {
+      "id": "665b6c55dc988a701dfb082aa04b32b8ec6ebf35bc2bc0642f0058a535373495",
+      "kind": "observation",
+      "payload": {
+        "kind": "observation",
+        "schema_version": 1,
+        "source_series_id": "3a1218540e534284f32c2977d97bffa785fa00fcfb5af1195ca95fd5dc72103b",
+        "measurement_period": "2026-05",
+        "value": 3.2,
+        "unit": "percent",
+        "source_exchange_ids": [
+          "79e50abb5c0497c97a9805b10565777df16c0989172ae6ce4c3afa53779035ea"
+        ],
+        "retrieved_at": "2026-09-08T13:32:39.936023Z",
+        "accepted_at": "2026-09-08T13:32:39.936023Z",
+        "parser_version": "official-fixtures-v1",
+        "vintage_policy": "fixed_vintage",
+        "publication_evidence": {
+          "raw_value": "2026-06-22T08:30",
+          "timezone": "America/Toronto",
+          "source_url": "https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods",
+          "parser_version": "statcan-wds-release-time-v1",
+          "artifact": {
+            "sha256": "fc16bd01e245489023383b1504fef097a7dfbf54dde690a2be3c6667e005dbf6",
+            "bytes": 1178,
+            "media_type": "application/json"
+          }
+        }
+      }
+    }
+  ],
+  "nativeLinks": [
+    {
+      "recordId": "79e50abb5c0497c97a9805b10565777df16c0989172ae6ce4c3afa53779035ea",
+      "fieldPath": "source_series_id",
+      "relation": "source_series",
+      "targetId": "3a1218540e534284f32c2977d97bffa785fa00fcfb5af1195ca95fd5dc72103b",
+      "targetKind": "source_series"
+    },
+    {
+      "recordId": "65ca38686ba5786de288da1afa8f1a1e15aab6d5488ad9a2cd8b73d730d9ab94",
+      "fieldPath": "source_series_id",
+      "relation": "source_series",
+      "targetId": "3a1218540e534284f32c2977d97bffa785fa00fcfb5af1195ca95fd5dc72103b",
+      "targetKind": "source_series"
+    },
+    {
+      "recordId": "65ca38686ba5786de288da1afa8f1a1e15aab6d5488ad9a2cd8b73d730d9ab94",
+      "fieldPath": "source_exchange_ids[0]",
+      "relation": "source_exchange",
+      "targetId": "79e50abb5c0497c97a9805b10565777df16c0989172ae6ce4c3afa53779035ea",
+      "targetKind": "source_exchange"
+    },
+    {
+      "recordId": "58ddf681b498fa28c53c68e9466b230f6b399b32e226683817ae230be50d7085",
+      "fieldPath": "source_series_id",
+      "relation": "source_series",
+      "targetId": "3a1218540e534284f32c2977d97bffa785fa00fcfb5af1195ca95fd5dc72103b",
+      "targetKind": "source_series"
+    },
+    {
+      "recordId": "58ddf681b498fa28c53c68e9466b230f6b399b32e226683817ae230be50d7085",
+      "fieldPath": "source_exchange_ids[0]",
+      "relation": "source_exchange",
+      "targetId": "79e50abb5c0497c97a9805b10565777df16c0989172ae6ce4c3afa53779035ea",
+      "targetKind": "source_exchange"
+    },
+    {
+      "recordId": "2a55b8e725affd5bc898c99c30dab8fef178a853452974aaee86042966b1c6b8",
+      "fieldPath": "source_series_id",
+      "relation": "source_series",
+      "targetId": "3a1218540e534284f32c2977d97bffa785fa00fcfb5af1195ca95fd5dc72103b",
+      "targetKind": "source_series"
+    },
+    {
+      "recordId": "2a55b8e725affd5bc898c99c30dab8fef178a853452974aaee86042966b1c6b8",
+      "fieldPath": "source_exchange_ids[0]",
+      "relation": "source_exchange",
+      "targetId": "79e50abb5c0497c97a9805b10565777df16c0989172ae6ce4c3afa53779035ea",
+      "targetKind": "source_exchange"
+    },
+    {
+      "recordId": "665b6c55dc988a701dfb082aa04b32b8ec6ebf35bc2bc0642f0058a535373495",
+      "fieldPath": "source_series_id",
+      "relation": "source_series",
+      "targetId": "3a1218540e534284f32c2977d97bffa785fa00fcfb5af1195ca95fd5dc72103b",
+      "targetKind": "source_series"
+    },
+    {
+      "recordId": "665b6c55dc988a701dfb082aa04b32b8ec6ebf35bc2bc0642f0058a535373495",
+      "fieldPath": "source_exchange_ids[0]",
+      "relation": "source_exchange",
+      "targetId": "79e50abb5c0497c97a9805b10565777df16c0989172ae6ce4c3afa53779035ea",
+      "targetKind": "source_exchange"
+    }
+  ]
+}

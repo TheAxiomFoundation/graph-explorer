@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph explorer focused layout fixture</title>
+    <style>
+      html, body, #root { height: 100%; margin: 0; }
+      body { color: #28392f; background: #edf0e8; font: 14px/1.5 system-ui, sans-serif; }
+      .focus-fixture { max-width: 1520px; height: 100dvh; margin: 0 auto; display: flex; flex-direction: column; background: #fbfbf7; }
+      .focus-fixture-header { height: 280px; box-sizing: border-box; flex: none; display: flex; flex-direction: column; justify-content: space-between; padding: 32px 28px 24px; border-bottom: 1px solid #dfe4d8; }
+      .focus-fixture-header h1 { margin: 0 0 10px; font-size: 26px; font-weight: 550; }
+      .focus-fixture-header p { margin: 0; max-width: 760px; color: #697468; }
+      .focus-fixture-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+      .focus-fixture-controls label { display: flex; align-items: center; gap: 7px; }
+      .focus-fixture-controls input { accent-color: #45634e; }
+      .focus-fixture-controls output { font-size: 12px; }
+      .focus-fixture-viewer { flex: 1; min-height: 0; }
+      .focus-fixture-viewer .ge-explorer { min-height: 0; }
+      .focus-fixture-card { display: flex; height: 100%; flex-direction: column; gap: 9px; }
+      .focus-fixture-card strong { font-size: 16px; font-weight: 600; }
+      .focus-fixture-card p { font-size: 12px; line-height: 1.45; }
+      .focus-fixture-card small { margin-top: auto; font-size: 10px; color: #697468; }
+      @media (max-width: 760px) { .focus-fixture-header { padding: 22px 18px; } .focus-fixture-header h1 { font-size: 22px; } }
+    </style>
+  </head>
+  <body><div id="root"></div><script type="module" src="./focus.tsx"></script></body>
+</html>

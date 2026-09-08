@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Host Locate fixture</title>
+    <style>
+      html, body, #root { margin: 0; height: 100%; }
+      body { font: 12px/1.4 system-ui, sans-serif; color: #28392f; }
+      .locate-fixture { height: 100dvh; display: flex; flex-direction: column; }
+      .host-controls { flex: none; padding: 8px; }
+      .host-controls button { margin: 2px; padding: 5px; }
+      .host-status { display: flex; flex-wrap: wrap; gap: 8px; font-size: 10px; overflow-wrap: anywhere; }
+      .locate-viewer { flex: 1; min-height: 0; }
+      .locate-viewer .ge-explorer { min-height: 0; }
+    </style>
+  </head>
+  <body><div id="root"></div><script type="module" src="./locate.tsx"></script></body>
+</html>

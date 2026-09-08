@@ -1,0 +1,232 @@
+{
+  "source": {
+    "repository": "https://github.com/TheAxiomFoundation/axiom-api",
+    "commit": "962169fd61105c168508bbd337af1a954936a639",
+    "artifactPath": "data/runtime-artifacts/us-oasdi-wage-tax.compiled.json",
+    "artifactSha256": "59c8c135ff43effd4a970dce2ed04f5d33083cb32bd6303e84f81bc97ac735c8",
+    "artifactRelease": {
+      "repo": "TheAxiomFoundation/rulespec-us",
+      "release_tag": "program-artifacts-dfd646bf8363",
+      "corpus_sha": "dfd646bf8363bc67a01c6c9c792db7d5d8ebd1a9"
+    },
+    "projector": "src/runtime-graph.ts#buildProgramGraph",
+    "projectorSha256": "d2acb260b9f78445eba3b3ac9f15f906d943002369c5c18f8d4d8b262b483161",
+    "profilePath": "data/compiled-package-profiles.json",
+    "generation": "Existing Axiom API buildCompiledPackageRegistry and buildProgramGraph executed against a hash-locked compiled RuleSpec artifact. No policy calculation executed.",
+    "limitations": "Historical compiled graph snapshot; no fresh compilation, runtime evaluation, certification verification, or claim of current law."
+  },
+  "graph": {
+    "rules": [
+      {
+        "legalId": "us:statutes/26/3101/a#oasdi_wage_tax",
+        "name": "oasdi_wage_tax",
+        "fileLegalId": "us:statutes/26/3101/a",
+        "kind": "derived",
+        "entity": "Person",
+        "dtype": "decimal",
+        "period": "Year",
+        "unit": "USD",
+        "source": "26 USC 3101(a)",
+        "sourceUrl": null,
+        "ruleDeps": [
+          "us:statutes/26/3101/a#oasdi_wage_tax_rate"
+        ],
+        "inputDeps": [
+          "axiom:us-oasdi-wage-tax-fy-2026#input.wages"
+        ],
+        "relationDeps": [],
+        "formula": "(oasdi_wage_tax_rate[0] * wages)"
+      },
+      {
+        "legalId": "us:statutes/26/3121/a/1#successor_employer_base_continuity_applies",
+        "name": "successor_employer_base_continuity_applies",
+        "fileLegalId": "us:statutes/26/3121/a/1",
+        "kind": "derived",
+        "entity": "Payment",
+        "dtype": "judgment",
+        "period": "Year",
+        "unit": null,
+        "source": "26 USC 3121(a)(1), second sentence",
+        "sourceUrl": null,
+        "ruleDeps": [],
+        "inputDeps": [
+          "axiom:us-oasdi-wage-tax-fy-2026#input.individual_employed_by_predecessor_immediately_before_acquisition",
+          "axiom:us-oasdi-wage-tax-fy-2026#input.individual_employed_by_successor_immediately_after_acquisition",
+          "axiom:us-oasdi-wage-tax-fy-2026#input.successor_employer_acquired_substantially_all_property_used_in_separate_unit_of_predecessor_trade_or_business_during_calendar_year",
+          "axiom:us-oasdi-wage-tax-fy-2026#input.successor_employer_acquired_substantially_all_trade_or_business_property_from_predecessor_during_calendar_year"
+        ],
+        "relationDeps": [],
+        "formula": "((((successor_employer_acquired_substantially_all_trade_or_business_property_from_predecessor_during_calendar_year == true)) or ((successor_employer_acquired_substantially_all_property_used_in_separate_unit_of_predecessor_trade_or_business_during_calendar_year == true))) and ((individual_employed_by_successor_immediately_after_acquisition == true))) and ((individual_employed_by_predecessor_immediately_before_acquisition == true))"
+      },
+      {
+        "legalId": "us:statutes/26/3121/a/1#predecessor_remuneration_counted_for_successor_base",
+        "name": "predecessor_remuneration_counted_for_successor_base",
+        "fileLegalId": "us:statutes/26/3121/a/1",
+        "kind": "derived",
+        "entity": "Payment",
+        "dtype": "decimal",
+        "period": "Year",
+        "unit": "USD",
+        "source": "26 USC 3121(a)(1), second sentence",
+        "sourceUrl": null,
+        "ruleDeps": [
+          "us:statutes/26/3121/a/1#successor_employer_base_continuity_applies"
+        ],
+        "inputDeps": [
+          "axiom:us-oasdi-wage-tax-fy-2026#input.predecessor_remuneration_other_than_succeeding_paragraphs_paid_or_considered_paid_to_individual_before_acquisition_during_calendar_year"
+        ],
+        "relationDeps": [],
+        "formula": "if successor_employer_base_continuity_applies: predecessor_remuneration_other_than_succeeding_paragraphs_paid_or_considered_paid_to_individual_before_acquisition_during_calendar_year else: 0"
+      },
+      {
+        "legalId": "us:statutes/26/3121/a/1#remuneration_counted_toward_oasdi_base_before_payment",
+        "name": "remuneration_counted_toward_oasdi_base_before_payment",
+        "fileLegalId": "us:statutes/26/3121/a/1",
+        "kind": "derived",
+        "entity": "Payment",
+        "dtype": "decimal",
+        "period": "Year",
+        "unit": "USD",
+        "source": "26 USC 3121(a)(1)",
+        "sourceUrl": null,
+        "ruleDeps": [
+          "us:statutes/26/3121/a/1#predecessor_remuneration_counted_for_successor_base"
+        ],
+        "inputDeps": [
+          "axiom:us-oasdi-wage-tax-fy-2026#input.remuneration_other_than_succeeding_paragraphs_paid_to_individual_by_employer_during_calendar_year_before_payment"
+        ],
+        "relationDeps": [],
+        "formula": "(remuneration_other_than_succeeding_paragraphs_paid_to_individual_by_employer_during_calendar_year_before_payment) + (predecessor_remuneration_counted_for_successor_base)"
+      },
+      {
+        "legalId": "us:statutes/26/3121/a/1#remaining_oasdi_contribution_and_benefit_base_before_payment",
+        "name": "remaining_oasdi_contribution_and_benefit_base_before_payment",
+        "fileLegalId": "us:statutes/26/3121/a/1",
+        "kind": "derived",
+        "entity": "Payment",
+        "dtype": "decimal",
+        "period": "Year",
+        "unit": "USD",
+        "source": "26 USC 3121(a)(1)",
+        "sourceUrl": null,
+        "ruleDeps": [
+          "us:statutes/26/3121/a/1#remuneration_counted_toward_oasdi_base_before_payment"
+        ],
+        "inputDeps": [
+          "axiom:us-oasdi-wage-tax-fy-2026#input.contribution_and_benefit_base_under_section_230_of_social_security_act"
+        ],
+        "relationDeps": [],
+        "formula": "max(0, (contribution_and_benefit_base_under_section_230_of_social_security_act - remuneration_counted_toward_oasdi_base_before_payment))"
+      },
+      {
+        "legalId": "us:statutes/26/3121/a/1#oasdi_wage_base_excess_excluded_remuneration",
+        "name": "oasdi_wage_base_excess_excluded_remuneration",
+        "fileLegalId": "us:statutes/26/3121/a/1",
+        "kind": "derived",
+        "entity": "Payment",
+        "dtype": "decimal",
+        "period": "Year",
+        "unit": "USD",
+        "source": "26 USC 3121(a)(1), first sentence",
+        "sourceUrl": null,
+        "ruleDeps": [
+          "us:statutes/26/3121/a/1#remaining_oasdi_contribution_and_benefit_base_before_payment"
+        ],
+        "inputDeps": [
+          "axiom:us-oasdi-wage-tax-fy-2026#input.remuneration_paid_to_individual_by_employer_with_respect_to_employment"
+        ],
+        "relationDeps": [],
+        "formula": "max(0, (remuneration_paid_to_individual_by_employer_with_respect_to_employment - remaining_oasdi_contribution_and_benefit_base_before_payment))"
+      },
+      {
+        "legalId": "us:statutes/26/3101/a#oasdi_wage_tax_rate",
+        "name": "oasdi_wage_tax_rate",
+        "fileLegalId": "us:statutes/26/3101/a",
+        "kind": "parameter",
+        "entity": null,
+        "dtype": "decimal",
+        "period": null,
+        "unit": null,
+        "source": null,
+        "sourceUrl": null,
+        "ruleDeps": [],
+        "inputDeps": [],
+        "relationDeps": [],
+        "formula": "0.062"
+      }
+    ],
+    "inputs": [
+      {
+        "legalId": "axiom:us-oasdi-wage-tax-fy-2026#input.contribution_and_benefit_base_under_section_230_of_social_security_act",
+        "name": "contribution_and_benefit_base_under_section_230_of_social_security_act",
+        "fileLegalId": "axiom:us-oasdi-wage-tax-fy-2026",
+        "sample": null,
+        "entity": "Payment"
+      },
+      {
+        "legalId": "axiom:us-oasdi-wage-tax-fy-2026#input.individual_employed_by_predecessor_immediately_before_acquisition",
+        "name": "individual_employed_by_predecessor_immediately_before_acquisition",
+        "fileLegalId": "axiom:us-oasdi-wage-tax-fy-2026",
+        "sample": null,
+        "entity": "Payment"
+      },
+      {
+        "legalId": "axiom:us-oasdi-wage-tax-fy-2026#input.individual_employed_by_successor_immediately_after_acquisition",
+        "name": "individual_employed_by_successor_immediately_after_acquisition",
+        "fileLegalId": "axiom:us-oasdi-wage-tax-fy-2026",
+        "sample": null,
+        "entity": "Payment"
+      },
+      {
+        "legalId": "axiom:us-oasdi-wage-tax-fy-2026#input.predecessor_remuneration_other_than_succeeding_paragraphs_paid_or_considered_paid_to_individual_before_acquisition_during_calendar_year",
+        "name": "predecessor_remuneration_other_than_succeeding_paragraphs_paid_or_considered_paid_to_individual_before_acquisition_during_calendar_year",
+        "fileLegalId": "axiom:us-oasdi-wage-tax-fy-2026",
+        "sample": null,
+        "entity": "Payment"
+      },
+      {
+        "legalId": "axiom:us-oasdi-wage-tax-fy-2026#input.remuneration_other_than_succeeding_paragraphs_paid_to_individual_by_employer_during_calendar_year_before_payment",
+        "name": "remuneration_other_than_succeeding_paragraphs_paid_to_individual_by_employer_during_calendar_year_before_payment",
+        "fileLegalId": "axiom:us-oasdi-wage-tax-fy-2026",
+        "sample": null,
+        "entity": "Payment"
+      },
+      {
+        "legalId": "axiom:us-oasdi-wage-tax-fy-2026#input.remuneration_paid_to_individual_by_employer_with_respect_to_employment",
+        "name": "remuneration_paid_to_individual_by_employer_with_respect_to_employment",
+        "fileLegalId": "axiom:us-oasdi-wage-tax-fy-2026",
+        "sample": null,
+        "entity": "Payment"
+      },
+      {
+        "legalId": "axiom:us-oasdi-wage-tax-fy-2026#input.successor_employer_acquired_substantially_all_property_used_in_separate_unit_of_predecessor_trade_or_business_during_calendar_year",
+        "name": "successor_employer_acquired_substantially_all_property_used_in_separate_unit_of_predecessor_trade_or_business_during_calendar_year",
+        "fileLegalId": "axiom:us-oasdi-wage-tax-fy-2026",
+        "sample": null,
+        "entity": "Payment"
+      },
+      {
+        "legalId": "axiom:us-oasdi-wage-tax-fy-2026#input.successor_employer_acquired_substantially_all_trade_or_business_property_from_predecessor_during_calendar_year",
+        "name": "successor_employer_acquired_substantially_all_trade_or_business_property_from_predecessor_during_calendar_year",
+        "fileLegalId": "axiom:us-oasdi-wage-tax-fy-2026",
+        "sample": null,
+        "entity": "Payment"
+      },
+      {
+        "legalId": "axiom:us-oasdi-wage-tax-fy-2026#input.wages",
+        "name": "wages",
+        "fileLegalId": "axiom:us-oasdi-wage-tax-fy-2026",
+        "sample": null,
+        "entity": "Person"
+      }
+    ],
+    "relations": [],
+    "ownOutputs": [
+      "us:statutes/26/3101/a#oasdi_wage_tax"
+    ],
+    "terminalOutputs": [
+      "us:statutes/26/3101/a#oasdi_wage_tax",
+      "us:statutes/26/3121/a/1#oasdi_wage_base_excess_excluded_remuneration"
+    ]
+  }
+}

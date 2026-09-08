@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "graph-explorer/v1",
+  "id": "cyclic-layout-recovery",
+  "title": "Synthetic cyclic multigraph",
+  "description": "Five generic records reproduce a layout ordering failure; no domain data or evaluation.",
+  "nodes": [
+    {
+      "id": "n0",
+      "label": "Record n0",
+      "kind": "fixture"
+    },
+    {
+      "id": "n1",
+      "label": "Record n1",
+      "kind": "fixture"
+    },
+    {
+      "id": "n2",
+      "label": "Record n2",
+      "kind": "fixture"
+    },
+    {
+      "id": "n3",
+      "label": "Record n3",
+      "kind": "fixture"
+    },
+    {
+      "id": "n4",
+      "label": "Record n4",
+      "kind": "fixture"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0",
+      "source": "n3",
+      "target": "n1",
+      "kind": "connects",
+      "category": "dependency"
+    },
+    {
+      "id": "e1",
+      "source": "n1",
+      "target": "n3",
+      "kind": "connects",
+      "category": "dependency"
+    },
+    {
+      "id": "e2",
+      "source": "n0",
+      "target": "n1",
+      "kind": "connects",
+      "category": "dependency"
+    },
+    {
+      "id": "e3",
+      "source": "n0",
+      "target": "n2",
+      "kind": "connects",
+      "category": "dependency"
+    },
+    {
+      "id": "e4",
+      "source": "n1",
+      "target": "n3",
+      "kind": "connects",
+      "category": "dependency"
+    },
+    {
+      "id": "e5",
+      "source": "n2",
+      "target": "n4",
+      "kind": "connects",
+      "category": "dependency"
+    }
+  ]
+}
