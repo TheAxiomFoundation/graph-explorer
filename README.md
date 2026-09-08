@@ -54,9 +54,9 @@ To diagnose an existing candidate or reproduce a regression, supply its immutabl
 bun run check:browser --tarball /absolute/path/to/package.tgz
 ```
 
-The same installed consumer also builds a synthetic React 18 host through the public exports. WebKit checks custom inspector and toolbar Locate actions, unchanged navigation and host detail, hidden-pane resizing, and rejected excluded or stale-scene targets. It also checks selected-record paging when controlled navigation supplies equivalent new kind-filter arrays. `GraphHostContext.locateNode(id)` is available from 0.4.3; see [host camera controls](docs/react-hosts.md#focus-framing-and-camera).
+The same installed consumer also builds synthetic React 18 hosts through the public exports. WebKit checks custom inspector and toolbar Locate actions, unchanged navigation and host detail, hidden-pane resizing, and rejected excluded or stale-scene targets. It also checks selected-record paging with equivalent new kind-filter arrays, search relevance across 242 matches, complete result paging, and camera retention during index-only search. `GraphHostContext.locateNode(id)` is available from 0.4.3; see [host camera controls](docs/react-hosts.md#focus-framing-and-camera).
 
-Runs write `report.json` and `host-report.json` under a unique `output/playwright/packed-*` directory, with browser screenshots when available. The reports record artifact and generated asset hashes so results identify the tested bytes. CI runs this gate after `check:dist` and retains those reports and screenshots for 14 days on success or failure. Its artifact upload includes only those evidence files; the temporary consumer and tarballs remain local to the run.
+Runs write `report.json`, `host-report.json`, and `search-report.json` under a unique `output/playwright/packed-*` directory, with browser screenshots when available. The reports record artifact and generated asset hashes so results identify the tested bytes. CI runs this gate after `check:dist` and retains those reports and screenshots for 14 days on success or failure. Its artifact upload includes only those evidence files; the temporary consumer and tarballs remain local to the run.
 
 ## Embed
 
@@ -78,7 +78,7 @@ The package supports React 18 and 19. `Orrery` is an alias for the existing `Gra
 
 Location callbacks include `{ reason: 'select' | 'focus' | 'view' }`, so a host can distinguish clicking the highlighted business record from view changes that preserve a more precise nested-field selection. Existing one-argument callbacks remain compatible. External controlled selection changes reveal the mobile inspector, while focus actions keep the graph visible.
 
-For host-only nested selections with an unchanged shared ID, `inspectorRequestKey` opens the mobile inspector without changing navigation. Large record indexes render 100 results per page while searching the complete document.
+For host-only nested selections with an unchanged shared ID, `inspectorRequestKey` opens the mobile inspector without changing navigation. Large record indexes render 100 results per page while searching the complete document. Search puts exact label or ID matches first, other label/ID matches next, then matches that need descriptive fields. All matches remain available; ties and empty searches retain document order.
 
 Focused views center the focus at a readable scale and frame nearby connected records that fit. The remaining records and relationships stay available by panning. **Fit all** shows the complete canvas; **Focus view** returns to the readable focus. Inspection and index-only search preserve the camera, and resizing preserves its world center and zoom.
 
@@ -118,7 +118,7 @@ Graph JSON cannot verify itself. Receipt references contain no executable config
 After building and packing this repository, install the tarball in a Node 20+ project. The installed CLI uses bundled assets and needs no Bun or source checkout:
 
 ```sh
-npm install /path/to/axiom-foundation-orrery-0.5.0-preview.1.tgz
+npm install /path/to/axiom-foundation-orrery-0.5.0-preview.2.tgz
 npx orrery --input graph.json --output report.html
 ```
 

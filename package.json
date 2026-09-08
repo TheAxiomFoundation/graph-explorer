@@ -1,6 +1,6 @@
 {
   "name": "@axiom-foundation/orrery",
-  "version": "0.5.0-preview.1",
+  "version": "0.5.0-preview.2",
   "description": "Orrery by Axiom: explore connected systems and trace their sources, agent activity, and Receipt provenance.",
   "license": "MIT",
   "type": "module",

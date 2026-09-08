@@ -5,6 +5,90 @@ import { canvasRecords, matchingRecords, nodeDimensions } from '../src/react/can
 const ids = (nodes: readonly GraphNode[]) => nodes.map(node => node.id);
 const noChildren = new Map<string, ReadonlySet<string>>();
 
+function relevanceGraph(): GraphDocument {
+  return {
+    schemaVersion: 'graph-explorer/v1', id: 'search-relevance', title: 'Invented search records',
+    nodes: [
+      ...Array.from({ length: 95 }, (_, i) => ({ id: `mention-${i}`, label: `Note ${i}`, kind: 'note', data: { reviewer: 'Mira Solen' } })),
+      { id: 'partial-label', label: 'Mira Solen draft', kind: 'person' },
+      { id: 'person/mira solen/current', label: 'Current person', kind: 'person' },
+      { id: 'reversed-label', label: 'Solen, Mira', kind: 'person' },
+      { id: 'exact-label', label: 'MIRA   SOLEN', kind: 'person' },
+      { id: 'mira solen', label: 'Opaque identity', kind: 'person' },
+      { id: 'unrelated', label: 'Different record', kind: 'person' },
+    ],
+    edges: [{ id: 'native-link', source: 'partial-label', target: 'exact-label', kind: 'references' }],
+  };
+}
+
+describe('stable record search relevance', () => {
+  test('exact label/ID and direct identity matches precede payload mentions without losing results', () => {
+    const document = relevanceGraph();
+    const result = matchingRecords(document, { query: '  mIrA\tSOLEN  ' });
+    expect(ids(result)).toEqual([
+      'exact-label', 'mira solen',
+      'partial-label', 'person/mira solen/current', 'reversed-label',
+      ...Array.from({ length: 95 }, (_, i) => `mention-${i}`),
+    ]);
+    expect(new Set(ids(result)).size).toBe(100);
+    for (const node of result) expect(node).toBe(document.nodes.find(candidate => candidate.id === node.id)!);
+  });
+
+  test('empty or whitespace-only queries retain native document order and exact kind filtering', () => {
+    const document = relevanceGraph();
+    for (const query of [undefined, '', ' \t\n ']) {
+      expect(ids(matchingRecords(document, { query }))).toEqual(ids(document.nodes));
+      expect(ids(matchingRecords(document, { query, kinds: ['person', 'person'] }))).toEqual(ids(document.nodes.filter(node => node.kind === 'person')));
+    }
+    expect(ids(matchingRecords(document, { query: 'mira solen', kinds: ['person'] }))).toEqual([
+      'exact-label', 'mira solen', 'partial-label', 'person/mira solen/current', 'reversed-label',
+    ]);
+    expect(matchingRecords(document, { query: 'mira solen', kinds: ['Person'] })).toEqual([]);
+  });
+
+  test('query tokens can still match across identity, kind, description and nested values', () => {
+    const document: GraphDocument = { ...relevanceGraph(), nodes: [
+      { id: 'payload-first', label: 'Notebook', kind: 'person', data: { authors: ['Mira', 'Solen'] } },
+      { id: 'description-second', label: 'Mira', kind: 'person', description: 'Solen authored this record' },
+      { id: 'Solen', label: 'Mira', kind: 'person' },
+      { id: 'exact-last', label: 'Mira Solen', kind: 'person' },
+    ], edges: [] };
+    expect(ids(matchingRecords(document, { query: 'mira solen' }))).toEqual(['exact-last', 'Solen', 'payload-first', 'description-second']);
+    expect(ids(matchingRecords(document, { query: 'mira solen person' }))).toEqual(ids(document.nodes));
+    expect(ids(matchingRecords(document, { query: 'mira authors' }))).toEqual(['payload-first']);
+    expect(ids(matchingRecords(document, { query: 'mira authored' }))).toEqual(['description-second']);
+  });
+
+  test('punctuated native IDs rank ahead of references to those IDs and records are never mutated', () => {
+    const nativeId = '["person","Élodie Chen"]';
+    const document: GraphDocument = { ...relevanceGraph(), nodes: [
+      { id: 'reference', label: 'Linked record', kind: 'note', data: { subject: ['person', 'Élodie Chen'] } },
+      { id: nativeId, label: 'Named record', kind: 'person' },
+    ], edges: [] };
+    const before = JSON.stringify(document);
+    Object.freeze(document.nodes);
+    document.nodes.forEach(Object.freeze);
+    expect(ids(matchingRecords(document, { query: nativeId }))).toEqual([nativeId, 'reference']);
+    expect(JSON.stringify(document)).toBe(before);
+  });
+
+  test('relevance does not reorder the canvas, change its projection or mutate native edges', () => {
+    const document = relevanceGraph();
+    const before = JSON.stringify(document);
+    const location = { query: 'mira solen' };
+    const matching = matchingRecords(document, location);
+    expect(matching[0].id).toBe('exact-label');
+    expect(ids(canvasRecords(document, location, matching, noChildren, {}))).toEqual(ids(document.nodes.filter(node => node.id !== 'unrelated')));
+    for (const query of ['mira solen', 'unrelated', 'no matching term', '']) {
+      expect(ids(canvasRecords(document, { query }, matchingRecords(document, { query }), noChildren, {
+        searchFiltersCanvas: false,
+        canvasNodeFilter: node => ['partial-label', 'exact-label'].includes(node.id),
+      }))).toEqual(['partial-label', 'exact-label']);
+    }
+    expect(JSON.stringify(document)).toBe(before);
+  });
+});
+
 function graph(): GraphDocument {
   return {
     schemaVersion: 'graph-explorer/v1', id: 'canvas-contract', title: 'Synthetic canvas fixture',

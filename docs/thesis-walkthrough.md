@@ -53,7 +53,7 @@ This is the publication added in Thesis PR #236. The publication timestamp is
 September 7, 2026 at 18:45:50 UTC, distinct from model execution and source capture.
 
 The committed input used here is
-[`examples/thesis-walkthrough-publication.json`](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/examples/thesis-walkthrough-publication.json).
+[`examples/thesis-walkthrough-publication.json`](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.2/examples/thesis-walkthrough-publication.json).
 It retains the two complete native public detail projections and a reproducible
 validation inventory. Original source bodies, prompts, commands, code captures,
 raw responses, provider envelopes, reports and feedback are linked by their exact
@@ -111,9 +111,9 @@ The comparison node shows both native sets of quantiles.
 
 Use a separate checkout of Thesis at the exact commit above, with its native
 Python dependencies installed. From the Orrery source checkout at
-`v0.5.0-preview.1`, run the
-[native replay script](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/examples/thesis-walkthrough-replay.py)
-and [projection tests](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/tests/thesis-walkthrough.test.ts):
+`v0.5.0-preview.2`, run the
+[native replay script](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.2/examples/thesis-walkthrough-replay.py)
+and [projection tests](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.2/tests/thesis-walkthrough.test.ts):
 
 ```sh
 /path/to/thesis/.venv/bin/python examples/thesis-walkthrough-replay.py /path/to/thesis
@@ -138,7 +138,7 @@ retrieval time, forecast correctness or receipt custody.
 
 ## Embed and export
 
-[`examples/thesis-walkthrough.ts`](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/examples/thesis-walkthrough.ts) exports:
+[`examples/thesis-walkthrough.ts`](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.2/examples/thesis-walkthrough.ts) exports:
 
 - `thesisWalkthrough`: current graph, validated with `parseGraphDocument`.
 - `thesisWalkthroughBaseline`: original-attempt comparison subset.
