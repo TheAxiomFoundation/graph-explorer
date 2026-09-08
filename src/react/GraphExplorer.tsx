@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { layoutNodePositions } from './layout.js';
 import {
   Background, BaseEdge, ControlButton, Controls, Handle, MarkerType, MiniMap, Position,
@@ -95,6 +95,9 @@ type CardNode = Node<CardData, 'record'>;
 type RelationEdge = Edge<{ record: GraphEdge; offset: number }, 'relation'>;
 type InspectorTab = 'record' | 'sources' | 'activity' | 'receipts' | 'history';
 const EMPTY_ASSESSMENTS: ReceiptAssessment[] = [];
+// Commit host-requested panes before child index scrolling can consume its
+// pending reveal. Server rendering has no layout and keeps the ordinary effect.
+const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 function selectionKey(location: GraphLocation | undefined): string {
   return JSON.stringify(location?.selectedId ? [location.selectedId, location.selectedType ?? 'node'] : null);
@@ -211,7 +214,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   const controlledSelectionKey = selectionKey(controlledLocation);
   const observedSelection = useRef(controlledSelectionKey);
   const requestedSelection = useRef<string | undefined>(undefined);
-  useEffect(() => {
+  useClientLayoutEffect(() => {
     if (observedSelection.current === controlledSelectionKey) return;
     observedSelection.current = controlledSelectionKey;
     const ownNavigation = requestedSelection.current === controlledSelectionKey;
@@ -224,7 +227,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     }
   }, [controlledSelectionKey, controlledLocation]);
   const observedInspectorRequest = useRef(inspectorRequestKey);
-  useEffect(() => {
+  useClientLayoutEffect(() => {
     if (Object.is(observedInspectorRequest.current, inspectorRequestKey)) return;
     observedInspectorRequest.current = inspectorRequestKey;
     // Explicit host detail requests can retain the same shared node/edge ID.

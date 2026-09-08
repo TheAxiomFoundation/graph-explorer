@@ -323,6 +323,9 @@ export async function checkPackedHost({ root, consumer, runDirectory }) {
         outputs: [...document.querySelectorAll('output')].map(output => ({ label: output.getAttribute('aria-label'), text: output.textContent })),
         index: { page: document.querySelector('.ge-index-pages span')?.textContent,
           selected: document.querySelector('.ge-index-list [aria-current="true"] small')?.textContent,
+          selectedBounds: document.querySelector('.ge-index-list [aria-current="true"]')?.getBoundingClientRect().toJSON(),
+          listBounds: document.querySelector('.ge-index-list')?.getBoundingClientRect().toJSON(),
+          scrollTop: document.querySelector('.ge-index-list')?.scrollTop,
           rows: document.querySelectorAll('.ge-index-list > button').length },
         nodes: [...document.querySelectorAll('.react-flow__node')].map(node => ({ id: node.getAttribute('data-id'), visibility: getComputedStyle(node).visibility, rect: node.getBoundingClientRect().toJSON() })),
       })), 2_000, 'Host failure diagnostics').catch(() => undefined);

@@ -101,7 +101,7 @@ Graph JSON cannot verify itself. Receipt references contain no executable config
 After building and packing this repository, install the tarball in a Node 20+ project. The installed CLI uses bundled assets and needs no Bun or source checkout:
 
 ```sh
-npm install /path/to/axiom-foundation-graph-explorer-0.4.5.tgz
+npm install /path/to/axiom-foundation-graph-explorer-0.4.6.tgz
 npx graph-explorer --input graph.json --output report.html
 ```
 

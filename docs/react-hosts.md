@@ -81,9 +81,9 @@ The canvas filter is absolute: focusing a host-excluded record does not put it o
 
 Version 0.4.0 renders at most 100 result buttons at once, with Previous records and Next records controls. Search and type filters still cover the complete supplied document. A new result set starts on the first page; initial selections and changed selections within the same result set reveal their matching page. Index page changes stay local: they do not emit navigation callbacks, alter scope/relationships, or move the graph camera. This bounds the index DOM, not the graph document, lineage work, or canvas node count; use `canvasNodeFilter` for the host's business canvas. Pagination does not redact exports.
 
-Version 0.4.5 compares kind-filter values as a set when retaining search results. A host may supply newly allocated arrays, reorder or repeat the same kinds, or interchange omitted and empty filters without resetting index paging or losing selected-row reveal. Kind matching remains case-sensitive, and the viewer preserves the original controlled location values. A changed filter value or document still creates a new result set; this does not require the host to stabilize array identity.
+Version 0.4.6 compares kind-filter values as a set when retaining search results. A host may supply newly allocated arrays, reorder or repeat the same kinds, or interchange omitted and empty filters without resetting index paging or losing selected-row reveal. Kind matching remains case-sensitive, and the viewer preserves the original controlled location values. A changed filter value or document still creates a new result set; this does not require the host to stabilize array identity.
 
-Pending selected-row scrolling waits until the parent's pane update has finished. If a mobile selection opens Inspect, the request remains pending until Browse returns or the viewport widens, then uses the current row sizes. Pane and size changes with no pending request preserve the user's scroll position.
+Host-requested pane changes commit before pending selected-row scrolling. If a mobile selection opens Inspect, the request remains pending until Browse returns or the viewport widens, then uses the current row sizes. Pane and size changes with no pending request preserve the user's scroll position.
 
 ## Focus framing and camera
 
