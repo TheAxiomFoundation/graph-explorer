@@ -1,16 +1,26 @@
 {
-  "name": "@axiom-foundation/graph-explorer",
-  "version": "0.4.6",
-  "description": "An embeddable graph explorer for dependencies, evidence, agent activity, and Receipt provenance.",
-  "license": "Apache-2.0",
+  "name": "@axiom-foundation/orrery",
+  "version": "0.5.0-preview.1",
+  "description": "Orrery by Axiom: explore connected systems and trace their sources, agent activity, and Receipt provenance.",
+  "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TheAxiomFoundation/graph-explorer.git"
+    "url": "https://github.com/TheAxiomFoundation/orrery.git"
   },
-  "homepage": "https://github.com/TheAxiomFoundation/graph-explorer",
-  "files": ["dist", "README.md", "LICENSE", "THIRD_PARTY_NOTICES", "docs", "examples/ADAPTERS.md", "src/core/types.ts", "scripts/receipt_bridge.py"],
+  "homepage": "https://theaxiomfoundation.github.io/orrery/",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES",
+    "docs",
+    "examples/ADAPTERS.md",
+    "src/core/types.ts",
+    "scripts/receipt_bridge.py"
+  ],
   "bin": {
+    "orrery": "./dist/cli.js",
     "graph-explorer": "./dist/cli.js"
   },
   "engines": {
@@ -42,7 +52,9 @@
     "build": "bun scripts/build.ts",
     "check:browser": "node scripts/check-packed-browser.mjs",
     "check:dist": "node scripts/check-standalone.mjs && NODE_ENV=production node scripts/check-production-react.mjs",
-    "export": "bun scripts/export.ts"
+    "export": "bun scripts/export.ts",
+    "build:site": "bun scripts/build-site.ts",
+    "check:site": "node scripts/check-site.mjs"
   },
   "peerDependencies": {
     "react": ">=18 <20",

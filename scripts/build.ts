@@ -5,7 +5,7 @@ import { collectThirdPartyNotices } from './third-party-notices';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 process.chdir(root);
-if (JSON.parse(await readFile('package.json', 'utf8')).name !== '@axiom-foundation/graph-explorer') throw new Error('Unexpected package root');
+if (JSON.parse(await readFile('package.json', 'utf8')).name !== '@axiom-foundation/orrery') throw new Error('Unexpected package root');
 const dist = join(root, 'dist');
 try { if ((await lstat(dist)).isSymbolicLink()) throw new Error('Refusing to clean a symlinked dist directory'); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
 // Only this package's generated dist is removed, never an arbitrary cwd/output path.
@@ -46,7 +46,7 @@ await writeFile(join(root, 'THIRD_PARTY_NOTICES'), notices.text);
 const projectLicense = await readFile(join(root, 'LICENSE'), 'utf8');
 if (projectLicense.includes('*/')) throw new Error('Project license cannot be embedded in a JavaScript comment');
 await mkdir(join(dist, 'standalone'), { recursive: true });
-await writeFile(join(dist, 'standalone/viewer.js'), `/*!\nGraph explorer - Apache-2.0\n${projectLicense}\n${notices.text}\n*/\n${javascript}`);
+await writeFile(join(dist, 'standalone/viewer.js'), `/*!\nOrrery - MIT\n${projectLicense}\n${notices.text}\n*/\n${javascript}`);
 await writeFile(join(dist, 'standalone/viewer.css'), css);
 await writeFile(join(dist, 'standalone/dependencies.json'), `${JSON.stringify({ packages: notices.packages }, null, 2)}\n`);
 const types = Bun.spawn(['bun', 'x', 'tsc', '-p', 'tsconfig.build.json'], { stdout: 'inherit', stderr: 'inherit' });

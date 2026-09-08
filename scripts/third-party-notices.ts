@@ -56,7 +56,7 @@ export async function collectThirdPartyNotices(root: string, metafile: Bun.Build
     sections.push(`${name}@${manifest.version} (${manifest.license})\n${'='.repeat(72)}\n${texts.join('\n\n')}\n`);
   }
   if (!packages.length) throw new Error('Standalone dependency inventory is unexpectedly empty');
-  const text = `THIRD-PARTY NOTICES\n\nGraph explorer's standalone viewer includes the packages below. Their full\nlicense and copyright notices are copied from the installed official packages.\nThe inventory is derived from the standalone bundler metafile, plus the audited\nGraphlib code prebundled into Dagre's distributed ESM. This file is regenerated\nby scripts/build.ts and embedded unchanged in the standalone JavaScript.\n\n${sections.join('\n')}`;
+  const text = `THIRD-PARTY NOTICES\n\nOrrery's standalone viewer includes the packages below. Their full\nlicense and copyright notices are copied from the installed official packages.\nThe inventory is derived from the standalone bundler metafile, plus the audited\nGraphlib code prebundled into Dagre's distributed ESM. This file is regenerated\nby scripts/build.ts and embedded unchanged in the standalone JavaScript.\n\n${sections.join('\n')}`;
   if (text.includes('*/')) throw new Error('License text contains a JavaScript comment terminator; revise notice embedding before building');
   return { text, packages };
 }

@@ -1,8 +1,19 @@
-# Graph explorer
+# Orrery by Axiom
 
-An embeddable graph viewer for application dependencies, evidence, and agent-produced records. Built with React Flow and Dagre. Apache-2.0.
+**See the system. Trace the work.**
+
+An embeddable graph viewer for application dependencies, evidence, and agent-produced records. Built with React Flow and Dagre. MIT.
+
+[Try the public preview](https://theaxiomfoundation.github.io/orrery/) · [Download a release](https://github.com/TheAxiomFoundation/orrery/releases) · [Migrate from graph-explorer](docs/migration.md)
 
 The shared package owns navigation and presentation. Axiom, Microcosm, PlanGraph, and Thesis keep their own domain models, calculations, source authority, and adapters. Graphs can include cycles and multiple distinct relationships between the same records.
+
+The preview opens local graph JSON in your browser without uploading it. Explore
+the supplied examples, follow their sources, and save an interactive offline
+HTML report. Its Thesis walkthrough traces a real published exploratory forecast
+through evidence, generation, source review and revision. Outstanding scientific
+review findings remain visible; artifact integrity and Receipt verification are
+separate from correctness.
 
 ## Run locally
 
@@ -16,7 +27,13 @@ bun run typecheck
 bun run build
 bun run check:dist
 python3 -m unittest discover -s tests -p '*_test.py'
+bun run build:site
 ```
+
+Serve `site-dist/` to preview the website, for example with
+`python3 -m http.server 4780 --directory site-dist`. The development server above
+opens the smaller embedding examples. The public site deploys only `site-dist/`,
+after the main branch passes CI.
 
 The example app includes an Axiom graph projected by its existing software from a recorded compiled artifact, and a Thesis scientific-record graph created by replaying a committed source fixture through its native capture adapter. Provenance and limitations are in [examples/ADAPTERS.md](examples/ADAPTERS.md). No example calculates benefits with a substitute evaluator or represents fixture data as live evidence.
 
@@ -44,18 +61,18 @@ Runs write `report.json` and `host-report.json` under a unique `output/playwrigh
 ## Embed
 
 ```tsx
-import { parseGraphDocument } from '@axiom-foundation/graph-explorer';
-import { GraphExplorer } from '@axiom-foundation/graph-explorer/react';
-import '@axiom-foundation/graph-explorer/style.css';
+import { parseGraphDocument } from '@axiom-foundation/orrery';
+import { Orrery } from '@axiom-foundation/orrery/react';
+import '@axiom-foundation/orrery/style.css';
 
 const document = parseGraphDocument(snapshot);
 
 <div style={{ height: '100vh' }}>
-  <GraphExplorer document={document} />
+  <Orrery document={document} />
 </div>
 ```
 
-The package supports React 18 and 19. `bun run build` creates JavaScript, declarations, and combined viewer styles. Until a registry release, install the tarball created by `npm pack`.
+The package supports React 18 and 19. `Orrery` is an alias for the existing `GraphExplorer` component. `bun run build` creates JavaScript, declarations, and combined viewer styles. The preview is distributed as an installable GitHub release tarball; see the [exact install command](docs/migration.md). A registry publication is separate.
 
 `GraphExplorer` accepts a `baseline` for snapshot comparison and controlled `location`/`onLocationChange` for host routing. Selection and exploration focus are independent. Custom cards, sizes, toolbar controls, and inspectors use the [React host API](docs/react-hosts.md), including a full navigation context whose `setLocation` replaces state. Optional revision choices come from the host; revision strings alone do not imply ancestry.
 
@@ -101,8 +118,8 @@ Graph JSON cannot verify itself. Receipt references contain no executable config
 After building and packing this repository, install the tarball in a Node 20+ project. The installed CLI uses bundled assets and needs no Bun or source checkout:
 
 ```sh
-npm install /path/to/axiom-foundation-graph-explorer-0.4.6.tgz
-npx graph-explorer --input graph.json --output report.html
+npm install /path/to/axiom-foundation-orrery-0.5.0-preview.1.tgz
+npx orrery --input graph.json --output report.html
 ```
 
 From the source checkout:
@@ -117,7 +134,7 @@ bun run export --input graph.json --output output/report.html \
 
 The single HTML file bundles the viewer, styles, and supplied graph. It needs no server, CDN, or network to render. Referenced source files and reports are links, not automatically included. Export is an explicit operation over the supplied snapshot: hiding fields in the UI does not redact them. Make a separate appropriately scoped snapshot before sharing; its changed bytes need their own assessment.
 
-Node hosts can import `exportGraphHtml` from `@axiom-foundation/graph-explorer/export` with `{ input, output, baseline?, assessment? }`. Inputs are local paths supplied by the host. Export validates the snapshot and any separately supplied assessment, hashes the exact source bytes, and refuses to overwrite input files or their aliases.
+Node hosts can import `exportGraphHtml` from `@axiom-foundation/orrery/export` with `{ input, output, baseline?, assessment? }`. Inputs are local paths supplied by the host. Export validates the snapshot and any separately supplied assessment, hashes the exact source bytes, and refuses to overwrite input files or their aliases.
 
 Version 0.2.1 fixed two packaging failures in 0.1.0 and 0.2.0: the offline classic script retained a dependency's `import.meta.env`, and the React entry emitted a development-only JSX runtime that failed under `NODE_ENV=production`. Version 0.4.2 also preserves React Flow's measured node sizes across rerenders, fixing an intermittent hidden canvas during initialization and resizing. Use 0.4.2 or later. After every build, `bun run check:dist` parses the actual exported classic script and renders the built React component in a fresh production Node process, including its host inspector and toolbar hooks. The packed browser gate then checks the installed artifact in WebKit; importing a component alone does not test rendering.
 

@@ -1,6 +1,6 @@
 THIRD-PARTY NOTICES
 
-Graph explorer's standalone viewer includes the packages below. Their full
+Orrery's standalone viewer includes the packages below. Their full
 license and copyright notices are copied from the installed official packages.
 The inventory is derived from the standalone bundler metafile, plus the audited
 Graphlib code prebundled into Dagre's distributed ESM. This file is regenerated

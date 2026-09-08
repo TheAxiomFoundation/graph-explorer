@@ -1,6 +1,6 @@
 # React host API
 
-`GraphExplorer` supports React 18 and 19 and requires a container with an explicit height. Import the combined package stylesheet once. The host owns its domain model, routing, calculations, and sharing policy; the viewer receives a validated `GraphDocument`. The exported interfaces are in [GraphExplorer.tsx](../src/react/GraphExplorer.tsx).
+`GraphExplorer` supports React 18 and 19 and requires a container with an explicit height. Import the combined package stylesheet once. The host owns its domain model, routing, calculations, and sharing policy; the viewer receives a validated `GraphDocument`. The exported interfaces are in [GraphExplorer.tsx](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/src/react/GraphExplorer.tsx).
 
 ## Props
 
@@ -137,9 +137,9 @@ This React 18-compatible example uses synthetic records and explicitly exports t
 ```tsx
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { parseGraphDocument, type GraphLocation } from '@axiom-foundation/graph-explorer';
-import { GraphExplorer, type GraphHostContext, type GraphNodeRenderContext } from '@axiom-foundation/graph-explorer/react';
-import '@axiom-foundation/graph-explorer/style.css';
+import { parseGraphDocument, type GraphLocation } from '@axiom-foundation/orrery';
+import { GraphExplorer, type GraphHostContext, type GraphNodeRenderContext } from '@axiom-foundation/orrery/react';
+import '@axiom-foundation/orrery/style.css';
 
 const snapshot = parseGraphDocument({
   schemaVersion: 'graph-explorer/v1', id: 'synthetic', title: 'Synthetic records',

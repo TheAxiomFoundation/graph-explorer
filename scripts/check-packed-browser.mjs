@@ -52,14 +52,19 @@ try {
   report.tarballSha256 = hash(await readFile(tarball));
   await writeJson(join(consumer, 'package.json'), {
     private: true, type: 'module', dependencies: {
+      '@axiom-foundation/orrery': `file:${tarball}`,
       '@axiom-foundation/graph-explorer': `file:${tarball}`, react: '18.3.1', 'react-dom': '18.3.1',
     },
   });
   run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false'], consumer);
-  const packageDirectory = join(consumer, 'node_modules/@axiom-foundation/graph-explorer');
+  const packageDirectory = join(consumer, 'node_modules/@axiom-foundation/orrery');
   const installedPackage = JSON.parse(await readFile(join(packageDirectory, 'package.json'), 'utf8'));
-  assert.equal(installedPackage.name, '@axiom-foundation/graph-explorer');
+  assert.equal(installedPackage.name, '@axiom-foundation/orrery');
   report.packageVersion = installedPackage.version;
+  for (const command of ['orrery', 'graph-explorer']) {
+    assert.match(run(join(consumer, 'node_modules/.bin', command), ['--help'], consumer), /^Usage: orrery /);
+  }
+  report.checks.push('Both Orrery and legacy graph-explorer CLI entrypoints work');
   report.reactEntrySha256 = hash(await readFile(join(packageDirectory, 'dist/react/index.js')));
 
   const hostile = '</script><script>globalThis.graphExplorerInjected = true</script>';
@@ -212,10 +217,14 @@ try {
 import { readFileSync } from 'node:fs';
 import { createElement, version } from 'react';
 import { renderToString } from 'react-dom/server';
-import { GraphExplorer } from '@axiom-foundation/graph-explorer/react';
-import { parseGraphDocument } from '@axiom-foundation/graph-explorer';
+import { GraphExplorer, Orrery } from '@axiom-foundation/orrery/react';
+import { GraphExplorer as LegacyGraphExplorer } from '@axiom-foundation/graph-explorer/react';
+assert.equal(Orrery, GraphExplorer);
+import { parseGraphDocument } from '@axiom-foundation/orrery';
 const document = parseGraphDocument(JSON.parse(readFileSync(process.argv[2], 'utf8')));
-assert.ok(renderToString(createElement(GraphExplorer, { document, location: { selectedId: 'output' } })).includes('Packed output detail'));
+for (const Viewer of [Orrery, GraphExplorer, LegacyGraphExplorer]) {
+  assert.ok(renderToString(createElement(Viewer, { document, location: { selectedId: 'output' } })).includes('Packed output detail'));
+}
 console.log(JSON.stringify({ react: version, productionRender: 'passed' }));
 `);
   report.productionReact = JSON.parse(run(process.execPath, ['production.mjs', input], consumer));

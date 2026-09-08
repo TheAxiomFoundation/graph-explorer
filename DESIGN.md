@@ -1,4 +1,4 @@
-# Graph explorer v0.1
+# Orrery v0.1
 
 Visual thesis: a quiet paper-toned workspace where the graph is the main surface, with a compact searchable index and a precise inspector.
 Content plan: working graph first; navigation at left; record, evidence, and activity detail at right; no marketing hero.
