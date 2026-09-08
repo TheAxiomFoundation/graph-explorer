@@ -53,12 +53,34 @@ describe('the published native Thesis walkthrough', () => {
     }
   });
 
+  test('reference and arm citations preserve literal source IDs without implying uncited sources were unused', () => {
+    const [original, revised] = publication.details;
+    const reference = graph.nodes.find(n => n.id === JSON.stringify([revised.id, 'reference']))!;
+    const referenceCitations = graph.edges.filter(e => e.kind === 'response_source_citation' && e.target === reference.id);
+    expect(reference.description).toBe(revised.response.reference_reasoning);
+    expect(reference.data!.literalCitedSourceIds).toEqual(['naep-history', 'naep-calendar', 'naep-framework']);
+    expect(referenceCitations.map(e => graph.nodes.find(n => n.id === e.source)!.data!.nativeSourceId)).toEqual(['naep-history', 'naep-calendar', 'naep-framework']);
+    expect(referenceCitations.every(e => e.data!.nativePath === 'response.reference_reasoning')).toBe(true);
+    const enacted = graph.nodes.find(n => n.id === JSON.stringify([revised.id, 'arm', 'enacted']))!;
+    expect(enacted.data!.literalCitedSourceIds).toEqual(['naep-population', 'hr2021-text', 'jpal-indonesia', 'hendricks-texas']);
+    const notEnacted = graph.nodes.find(n => n.id === JSON.stringify([revised.id, 'arm', 'not_enacted']))!;
+    expect(notEnacted.data!.literalCitedSourceIds).toEqual([]); // Its bracketed numerical interval is not a citation.
+    for (const node of graph.nodes.filter(n => n.data?.attemptId === original.id && ['reference_forecast', 'conditional_forecast'].includes(n.kind))) {
+      expect(node.data!.literalCitedSourceIds).toEqual([]);
+      expect((node.data!.citationExtraction as { absenceMeaning: string }).absenceMeaning).toContain('does not establish that no sources were cited or used');
+    }
+    expect(graph.edges.filter(e => e.kind === 'response_source_citation')).toHaveLength(7);
+  });
+
   test('artifact links point to the exact allowed public commit, without local paths', () => {
     for (const artifact of graph.artifacts!) {
       expect(artifact.uri).toBe(`https://raw.githubusercontent.com/ThesisInstitute/thesis/${publication.source.commit}/site/lab-publication/blobs/${artifact.sha256}`);
     }
     expect(JSON.stringify(graph)).not.toContain('/Users/');
     expect(JSON.stringify(graph)).not.toContain('architecture-reviews');
-    expect(publication.source.checkedArtifactCount).toBe(34);
+    expect(graph.artifacts).toHaveLength(publication.source.checkedArtifactCount);
+    for (const source of publication.details[1].contract.sources) {
+      expect(graph.artifacts!.find(a => a.id === source.artifact.sha256)!.label).toBe(source.title);
+    }
   });
 });

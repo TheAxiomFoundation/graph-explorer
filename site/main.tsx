@@ -1,7 +1,7 @@
 import { Component, useCallback, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GraphExplorer } from '../src/react';
-import { decodeLocation, encodeLocation, parseGraphDocument, prepareGraphExport } from '../src/core';
+import { decodeLocation, encodeLocation, GraphValidationError, parseGraphDocument, prepareGraphExport } from '../src/core';
 import type { GraphDocument, GraphLocation } from '../src/core';
 import { examples, type Example } from './examples';
 import { downloadFile, fileStem, makeOfflineReport, type OfflineShell } from './offline';
@@ -11,10 +11,21 @@ import './style.css';
 
 const REPOSITORY = 'https://github.com/TheAxiomFoundation/orrery';
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const MAX_LOCAL_SNAPSHOTS = 5;
 const initialExample = () => examples.find(item => item.id === new URLSearchParams(window.location.search).get('example')) ?? examples[0];
 const localFileRequested = () => new URLSearchParams(window.location.search).get('example') === 'local';
 const localFileReminder = 'Local files are not stored in links. Open your graph JSON again to restore this view.';
 const initialLocation = (example: Example) => localFileRequested() ? example.location : window.location.hash ? decodeLocation(window.location.hash) : example.location;
+const shorten = (text: string, limit: number) => text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+const shortenPath = (path: string) => path.length > 100 ? `${path.slice(0, 60)}…${path.slice(-39)}` : path;
+function importError(cause: unknown): string {
+  if (cause instanceof GraphValidationError) {
+    const shown = cause.issues.slice(0, 5).map(issue => `${shortenPath(issue.path)}: ${shorten(issue.message, 70)}`);
+    return `This graph has ${cause.issues.length} validation ${cause.issues.length === 1 ? 'issue' : 'issues'}.\n${shown.join('\n')}${cause.issues.length > shown.length ? `\nAnd ${cause.issues.length - shown.length} more.` : ''}`;
+  }
+  if (cause instanceof SyntaxError) return 'This file is not valid JSON. Choose an Orrery GraphDocument JSON file.';
+  return shorten(cause instanceof Error ? cause.message : 'This graph could not be opened.', 1000);
+}
 
 class ViewerBoundary extends Component<{ children: ReactNode; resetKey: string; onReset: () => void }, { error?: string }> {
   state: { error?: string } = {};
@@ -34,7 +45,7 @@ function App() {
   const [importedName, setImportedName] = useState('');
   const [location, setLocation] = useState<GraphLocation>(() => initialLocation(initialExample()));
   const [error, setError] = useState('');
-  const [status, setStatus] = useState(() => localFileRequested() ? localFileReminder : '');
+  const [status, setStatus] = useState(() => localFileRequested() || window.history.state?.orreryLocalExpired ? localFileReminder : '');
   const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [localId, setLocalId] = useState<string>();
@@ -59,15 +70,22 @@ function App() {
       // An imported graph exists only in this tab. History cannot fetch its bytes.
       if (new URLSearchParams(window.location.search).get('example') !== 'local') {
         setImported(undefined); setLocalId(undefined); setExample(next);
+        setStatus(window.history.state?.orreryLocalExpired ? localFileReminder : '');
       } else {
         const local = localSnapshots.current.get(window.history.state?.orreryLocalId);
-        if (local) { setImported(local.document); setImportedName(local.name); setLocalId(window.history.state.orreryLocalId); }
-        else { setImported(undefined); setLocalId(undefined); setExample(next); setStatus(localFileReminder); setLocation(next.location); return; }
+        if (local) { setImported(local.document); setImportedName(local.name); setLocalId(window.history.state.orreryLocalId); setStatus(''); }
+        else {
+          setImported(undefined); setLocalId(undefined); setExample(next); setStatus(localFileReminder); setLocation(next.location);
+          const url = new URL(window.location.href); url.searchParams.set('example', next.id); url.hash = encodeLocation(next.location);
+          window.history.replaceState({ orreryLocalExpired: true }, '', url);
+          return;
+        }
       }
       const isLocal = new URLSearchParams(window.location.search).get('example') === 'local';
       setLocation(window.location.hash ? decodeLocation(window.location.hash) : isLocal ? {} : next.location);
     };
     window.addEventListener('popstate', sync); window.addEventListener('hashchange', sync);
+    if (localFileRequested()) sync();
     return () => { window.removeEventListener('popstate', sync); window.removeEventListener('hashchange', sync); };
   }, [cancelPendingImport]);
 
@@ -101,6 +119,7 @@ function App() {
       // History survives reload; random keys prevent old entries aliasing new files.
       const nextLocalId = crypto.randomUUID();
       localSnapshots.current.set(nextLocalId, { document: graph, name: file.name });
+      while (localSnapshots.current.size > MAX_LOCAL_SNAPSHOTS) localSnapshots.current.delete(localSnapshots.current.keys().next().value!);
       setImported(graph); setImportedName(file.name); setLocation({}); setLocalId(nextLocalId);
       const url = new URL(window.location.href); url.searchParams.set('example', 'local'); url.hash = '';
       window.history.pushState({ orreryLocalId: nextLocalId }, '', url);
@@ -108,7 +127,7 @@ function App() {
       workspace.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (cause) {
       if (request !== importRequest.current) return;
-      setError(cause instanceof SyntaxError ? 'This file is not valid JSON. Choose an Orrery GraphDocument JSON file.' : cause instanceof Error ? cause.message : 'This graph could not be opened.');
+      setError(importError(cause));
     } finally {
       if (request === importRequest.current) {
         setLoading(false); if (fileInput.current) fileInput.current.value = '';
@@ -122,7 +141,7 @@ function App() {
       if (!shellPromise.current) shellPromise.current = fetch(new URL('./offline-shell.json', window.location.href)).then(async response => {
         if (!response.ok) throw new Error('The offline viewer could not be loaded. Please retry when this site is reachable.');
         const shell = await response.json() as OfflineShell;
-        if (typeof shell.prefix !== 'string' || typeof shell.suffix !== 'string') throw new Error('The offline viewer assets are invalid.');
+        if (typeof shell.titlePrefix !== 'string' || typeof shell.prefix !== 'string' || typeof shell.suffix !== 'string') throw new Error('The offline viewer assets are invalid.');
         return shell;
       }).catch(cause => { shellPromise.current = undefined; throw cause; });
       const html = await makeOfflineReport(current, await shellPromise.current, baseline);
@@ -145,7 +164,7 @@ function App() {
           <div className="demo-actions"><button className="button" onClick={() => fileInput.current?.click()} disabled={loading}>{loading ? 'Opening…' : 'Open graph JSON'} <span aria-hidden="true">↑</span></button><button className="button primary" disabled={exporting} onClick={exportHtml}>{exporting ? 'Preparing report…' : 'Save offline report'} <span aria-hidden="true">↓</span></button></div>
           <input ref={fileInput} type="file" accept=".json,application/json" aria-label="Open a local graph JSON file" className="file-input" onChange={event => void importFile(event.target.files?.[0])} />
         </div>
-        <div className="example-context"><span className="example-indicator" aria-hidden="true" /><p>{imported ? 'Local graph. File contents stay in this browser; graph links open only when you choose them.' : example.summary}</p><button className="text-action" onClick={() => { downloadFile(prepareGraphExport(current).json, `${fileStem(current.title)}.json`, 'application/json'); setStatus('Graph JSON saved.'); }}>Download JSON <span aria-hidden="true">↓</span></button></div>
+        <div className="example-context"><span className="example-indicator" aria-hidden="true" /><p>{imported ? 'Local graph. The five most recent imports stay in this tab’s memory. Nothing is uploaded; links open only when you choose them.' : example.summary}</p><button className="text-action" onClick={() => { downloadFile(prepareGraphExport(current).json, `${fileStem(current.title)}.json`, 'application/json'); setStatus('Graph JSON saved.'); }}>Download JSON <span aria-hidden="true">↓</span></button></div>
         {error && <div className="site-message site-error" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error">×</button></div>}
         <div className="status-message" role="status" aria-live="polite">{status}</div>
         {!imported && example.caveat && <details className="example-caveat"><summary>Exploratory · source-review issues remain</summary><p>{example.caveat}</p></details>}

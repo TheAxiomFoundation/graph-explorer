@@ -22,12 +22,15 @@ const assetTags = result.outputs.map(file => {
 }).filter(Boolean).join('\n    ');
 const template = await readFile(join(root, 'site/index.html'), 'utf8');
 await writeFile(join(out, 'index.html'), template.replace('<!-- ORRERY_ASSETS -->', assetTags));
-const html = renderOfflineHtml({ graph: JSON.stringify({ schemaVersion: 'graph-explorer/v1', id: 'orrery-offline-shell', title: 'Orrery offline report', nodes: [], edges: [] }), assets }).html;
+const titleSlot = 'ORRERY_GRAPH_TITLE_SLOT';
+const html = renderOfflineHtml({ graph: JSON.stringify({ schemaVersion: 'graph-explorer/v1', id: 'orrery-offline-shell', title: titleSlot, nodes: [], edges: [] }), assets }).html;
 const marker = '<script id="graph-explorer-data" type="application/json">';
 const start = html.indexOf(marker) + marker.length;
 const end = html.indexOf('</script>', start);
 if (start < marker.length || end < start) throw new Error('The trusted offline exporter payload element was not found');
-// Preserve the package exporter HTML and bundled viewer exactly. Only JSON changes.
-await writeFile(join(out, 'offline-shell.json'), JSON.stringify({ prefix: html.slice(0, start), suffix: html.slice(end) }));
+const titleStart = html.indexOf(`<title>${titleSlot}`) + '<title>'.length;
+if (titleStart < '<title>'.length || titleStart + titleSlot.length > start) throw new Error('The trusted offline exporter title element was not found');
+// Preserve the exporter markup/viewer; only an escaped title and JSON are inserted.
+await writeFile(join(out, 'offline-shell.json'), JSON.stringify({ titlePrefix: html.slice(0, titleStart), prefix: html.slice(titleStart + titleSlot.length, start), suffix: html.slice(end) }));
 await writeFile(join(out, '.nojekyll'), '');
 console.log(`Built public Orrery preview at ${out}. Serve this directory at any path.`);

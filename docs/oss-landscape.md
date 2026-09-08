@@ -59,7 +59,7 @@ result to its inputs or checking what changed between revisions.
 
 Thesis fits because scientific records also have typed dependencies: source
 exchanges, observations, evidence bundles, forecast runs, and publication
-records. Its [adapter](../src/adapters/thesis.ts) projects the native relationship
+records. Its [adapter](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/src/adapters/thesis.ts) projects the native relationship
 registry and preserves declared identities and artifact references. A source
 capture or evidence bundle does **not** prove an agent actually consumed it;
 the adapter labels supplied evidence accordingly. The committed

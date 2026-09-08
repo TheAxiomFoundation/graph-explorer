@@ -27,6 +27,9 @@ Existing named exports, host callbacks, canvas controls and export projection
 contracts remain supported. Changing package imports is sufficient; no adapter
 or data migration is required.
 
+The viewer's visible brand label now reads “Orrery” above the host document
+title. The host's document title and domain labels retain their supplied text.
+
 Hosts that need to retain the old import path can point that dependency key at
 the new archive explicitly:
 

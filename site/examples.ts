@@ -16,7 +16,7 @@ export interface Example {
 /** Only public native projections belong here; host applications own private data. */
 export const examples: Example[] = [
   {
-    id: 'thesis', label: 'Thesis · forecast, reviewed', document: thesisWalkthrough,
+    id: 'thesis', label: 'Thesis · recorded forecast', document: thesisWalkthrough,
     baseline: thesisWalkthroughBaseline, location: { ...thesisWalkthroughLocation, focusId: thesisWalkthroughLocation.selectedId },
     summary: thesisWalkthroughDescription,
     caveat: `${thesisWalkthroughCaveat} Comparison shows the original-attempt subset of this same snapshot, not an earlier publication. Linked source artifacts require a connection.`,

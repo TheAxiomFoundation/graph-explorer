@@ -16,6 +16,15 @@ const historyId = (period: string) => nested(revised.contract_id, 'history', per
 const json = (value: unknown): { [key: string]: JsonValue } => JSON.parse(JSON.stringify(value));
 const subject = (node: GraphNode) => ({ type: 'node' as const, id: node.id, revision: node.revision });
 const artifactUrl = (sha: string) => `${rawRoot}${sha}`;
+const citationExtraction = {
+  fields: ['response.reference_reasoning', 'response.arms[].reasoning'],
+  rule: 'Exact known source IDs inside square brackets, including comma-separated IDs; no natural-language citation inference',
+  absenceMeaning: 'No recognized bracketed source ID in this reasoning; this does not establish that no sources were cited or used',
+};
+function citedSourceIds(reasoning: string): string[] {
+  const tokens = new Set([...reasoning.matchAll(/\[([^\]]+)\]/g)].flatMap(match => match[1].split(',').map(token => token.trim())));
+  return contract.sources.filter(source => tokens.has(source.id)).map(source => source.id);
+}
 
 export const thesisWalkthroughDescription = 'Trace a recorded Gemini forecast from public education evidence through review and revision.';
 export const thesisWalkthroughCaveat = 'Exploratory · source-review issues remain. No automatic resolver, prospective rank, causal-effect claim or verified Receipt.';
@@ -30,7 +39,10 @@ function project(includeRevision: boolean): GraphDocument {
     edges.push({ id: JSON.stringify([source, target, kind]), source, target, kind, label, category, ...(data ? { data } : {}) });
   };
   const addArtifact = (ref: { sha256: string; media_type: string; role?: string }, label?: string) => {
-    artifacts.set(ref.sha256, { id: ref.sha256, sha256: ref.sha256, mediaType: ref.media_type, label: label ?? ref.role ?? ref.sha256.slice(0, 12), uri: artifactUrl(ref.sha256) });
+    artifacts.set(ref.sha256, { id: ref.sha256, sha256: ref.sha256, mediaType: ref.media_type, label: label ?? artifacts.get(ref.sha256)?.label ?? ref.role ?? ref.sha256.slice(0, 12), uri: artifactUrl(ref.sha256) });
+  };
+  const addReasoningCitations = (target: string, ids: string[], nativePath: string) => {
+    for (const id of ids) addEdge(sourceId(id), target, 'response_source_citation', 'cited in reasoning', 'evidence', { evidenceRole: 'cited', nativePath });
   };
   addNode({ id: revised.contract_id, revision: revised.contract_id, label: '2030 mathematics · exact question', kind: 'conditional_contract', description: contract.question, data: { record: json(contract), nativePath: "contract", artifactIds: [revised.contract_id] }, sources: [{ label: 'Native frozen contract', url: `${blobRoot}${revised.contract_id}`, sha256: revised.contract_id }], statuses: [{ label: 'Exploratory · not registered', tone: 'warning' }, { label: 'Release day not established', tone: 'neutral' }] });
   addNode({ id: revised.shared_evidence_id, revision: revised.shared_evidence_id, label: 'Shared evidence packet', kind: 'shared_evidence', description: 'The same frozen source packet was supplied to both attempts. Provision does not establish consumption of every source.', data: { historyCount: contract.shared_history.length, claimCount: contract.shared_evidence.length, sourceCount: contract.sources.length, evidenceRole: 'provided', nativeIdentity: revised.shared_evidence_id, nativePaths: ["contract.sources", "contract.shared_history", "contract.shared_evidence"] }, statuses: [{ label: 'Frozen inputs · local operator', tone: 'neutral' }] });
@@ -59,22 +71,25 @@ function project(includeRevision: boolean): GraphDocument {
     const isRevised = detail.id === revised.id;
     const response = detail.response;
     const refId = nested(detail.id, 'reference');
+    const referenceSources = citedSourceIds(response.reference_reasoning);
     const resultHash = detail.artifacts.find(a => a.role === 'result')!.sha256;
     const run = addNode({ id: detail.id, revision: resultHash, label: isRevised ? 'Gemini · revised attempt' : 'Gemini · original attempt', kind: 'conditional_attempt', description: 'Recorded execution succeeded; source and arithmetic review still has unresolved findings.', data: json({ nativeAttemptId: detail.id, nativePath: "$", requestedModel: detail.requested_model, observedModel: detail.observed_model, providerMetadata: detail.provider_metadata, startedAt: detail.started_at, finishedAt: detail.finished_at, executionState: detail.execution_state, scoringStatus: detail.scoring_status, trustClass: detail.trust_class, artifactIds: detail.artifacts.map(a => a.sha256) }), sources: [{ label: 'Complete native public projection', url: nativeUrl(detail.id) }], statuses: [{ label: 'Source-review issues remain', tone: 'warning' }, { label: 'Execution succeeded', tone: 'neutral' }] });
     addEdge(revised.contract_id, detail.id, 'attempt_contract', 'frozen question', 'dependency');
     addEdge(revised.shared_evidence_id, detail.id, 'attempt_evidence_provided', 'evidence supplied', 'evidence', { evidenceRole: 'provided' });
-    addNode({ id: refId, revision: resultHash, label: `${isRevised ? 'Revised' : 'Original'} reference · ${detail.reference_quantiles.q50}`, kind: 'reference_forecast', description: response.reference_reasoning, data: json({ distribution: response.reference, quantiles: detail.reference_quantiles, nativePath: 'response.reference', attemptId: detail.id, interpretation: 'Shared modeling baseline; not an unconditional mixture of the arms' }) });
+    addNode({ id: refId, revision: resultHash, label: `${isRevised ? 'Revised' : 'Original'} reference · ${detail.reference_quantiles.q50}`, kind: 'reference_forecast', description: response.reference_reasoning, data: json({ distribution: response.reference, quantiles: detail.reference_quantiles, nativePath: 'response.reference', nativeReasoningPath: 'response.reference_reasoning', literalCitedSourceIds: referenceSources, citationExtraction, attemptId: detail.id, interpretation: 'Shared modeling baseline; not an unconditional mixture of the arms' }) });
     addEdge(detail.id, refId, 'reported_reference', 'reported reference', 'provenance');
+    addReasoningCitations(refId, referenceSources, 'response.reference_reasoning');
     const outputNodes: GraphNode[] = [run, nodes.find(n => n.id === refId)!];
     response.arms.forEach((arm, index) => {
       const spec = contract.arms[index];
       const q = detail.arm_quantiles[index];
-      const armNode = addNode({ id: nested(detail.id, 'arm', arm.id), revision: resultHash, label: `${spec.label} · ${q.q50}`, kind: 'conditional_forecast', description: arm.reasoning, data: json({ condition: spec.condition, assumptions: spec.assumptions, quantiles: q, baselineDelta: arm.baseline_delta, distribution: arm.distribution, nativeArmId: arm.id, nativePath: `response.arms[${index}]`, attemptId: detail.id, unit: detail.unit }), statuses: [{ label: 'Exploratory · issues remain', tone: 'warning' }] });
+      const armSources = citedSourceIds(arm.reasoning);
+      const reasoningPath = `response.arms[${index}].reasoning`;
+      const armNode = addNode({ id: nested(detail.id, 'arm', arm.id), revision: resultHash, label: `${spec.label} · ${q.q50}`, kind: 'conditional_forecast', description: arm.reasoning, data: json({ condition: spec.condition, assumptions: spec.assumptions, quantiles: q, baselineDelta: arm.baseline_delta, distribution: arm.distribution, nativeArmId: arm.id, nativePath: `response.arms[${index}]`, nativeReasoningPath: reasoningPath, literalCitedSourceIds: armSources, citationExtraction, attemptId: detail.id, unit: detail.unit }), statuses: [{ label: 'Exploratory · issues remain', tone: 'warning' }] });
       outputNodes.push(armNode);
       addEdge(detail.id, armNode.id, 'reported_conditional', 'reported forecast', 'provenance');
       addEdge(refId, armNode.id, 'shared_reference_adjustment', `reference adjustment ${arm.baseline_delta >= 0 ? '+' : ''}${arm.baseline_delta}`, 'dependency', { baselineDelta: arm.baseline_delta, interpretation: 'Recorded forecast adjustment; no identified causal effect' });
-      // Add only literal source-ID citations from the recorded response.
-      for (const source of contract.sources) if (arm.reasoning.includes(`[${source.id}]`)) addEdge(sourceId(source.id), armNode.id, 'response_source_citation', 'cited in reasoning', 'evidence', { evidenceRole: 'cited' });
+      addReasoningCitations(armNode.id, armSources, reasoningPath);
     });
     activities.push({ id: nested(detail.id, 'execution'), label: isRevised ? 'Recorded revised Gemini execution' : 'Recorded original Gemini execution', kind: 'execution', revision: resultHash, agent: { name: 'Gemini operator transport', model: detail.requested_model }, startedAt: detail.started_at, endedAt: detail.finished_at, inputs: [{ subject: { type: 'node', id: revised.contract_id, revision: revised.contract_id }, role: 'provided' }, { subject: { type: 'node', id: revised.shared_evidence_id, revision: revised.shared_evidence_id }, role: 'provided' }], outputs: outputNodes.map(subject), artifactIds: detail.artifacts.map(a => a.sha256), data: { observedModel: null, providerMetadata: json(detail.provider_metadata), origin: 'operator-recorded; provider envelope matched to response, not independently attested', consumptionEvidence: 'not inferred' } });
     for (const [reviewIndex, review] of detail.reviews.entries()) {
@@ -100,7 +115,7 @@ function project(includeRevision: boolean): GraphDocument {
     addEdge(feedbackId, revised.id, 'revision_feedback_provided', 'feedback supplied', 'evidence', { evidenceRole: 'provided' });
     activities.find(a => a.id === nested(revised.id, 'execution'))!.inputs!.push({ subject: { type: 'node', id: feedbackId, revision: feedbackId }, role: 'provided' });
   }
-  return parseGraphDocument({ schemaVersion: 'graph-explorer/v1', id: 'thesis-teacher-pay-walkthrough', title: 'Teacher pay and mathematics · recorded Thesis forecasts', description: `${thesisWalkthroughDescription} ${thesisWalkthroughCaveat}`, revision: includeRevision ? revised.id : original.id, nodes, edges, activities, artifacts: [...artifacts.values()], receipts: [], metadata: { provenance: json(publication.source), projection: 'thesis/public-conditional-walkthrough-v1', snapshotMeaning: includeRevision ? 'Original, reviews and revised attempt together' : 'Original-attempt subset of the same later public snapshot; not a claim of earlier publication', fullPublicDetails: attempts.map(d => ({ id: d.id, url: nativeUrl(d.id) })), receiptAvailability: 'not_provided', limitations: contract.limitations, artifactAvailability: 'public links; bytes not embedded in offline export', immutableIds: 'Native top-level IDs retained; nested fields namespace native parent identity and field path' } });
+  return parseGraphDocument({ schemaVersion: 'graph-explorer/v1', id: 'thesis-teacher-pay-walkthrough', title: 'Teacher pay and mathematics · recorded Thesis forecasts', description: `${thesisWalkthroughDescription} ${thesisWalkthroughCaveat}`, revision: includeRevision ? revised.id : original.id, nodes, edges, activities, artifacts: [...artifacts.values()], receipts: [], metadata: { provenance: json(publication.source), projection: 'thesis/public-conditional-walkthrough-v1', snapshotMeaning: includeRevision ? 'Original, reviews and revised attempt together' : 'Original-attempt subset of the same later public snapshot; not a claim of earlier publication', fullPublicDetails: attempts.map(d => ({ id: d.id, url: nativeUrl(d.id) })), receiptAvailability: 'not_provided', limitations: contract.limitations, citationExtraction, artifactAvailability: 'public links; bytes not embedded in offline export', immutableIds: 'Native top-level IDs retained; nested fields namespace native parent identity and field path' } });
 }
 
 export const thesisWalkthroughBaseline = project(false);

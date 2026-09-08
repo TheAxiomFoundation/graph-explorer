@@ -1,6 +1,6 @@
 # React host API
 
-`GraphExplorer` supports React 18 and 19 and requires a container with an explicit height. Import the combined package stylesheet once. The host owns its domain model, routing, calculations, and sharing policy; the viewer receives a validated `GraphDocument`. The exported interfaces are in [GraphExplorer.tsx](../src/react/GraphExplorer.tsx).
+`GraphExplorer` supports React 18 and 19 and requires a container with an explicit height. Import the combined package stylesheet once. The host owns its domain model, routing, calculations, and sharing policy; the viewer receives a validated `GraphDocument`. The exported interfaces are in [GraphExplorer.tsx](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/src/react/GraphExplorer.tsx).
 
 ## Props
 

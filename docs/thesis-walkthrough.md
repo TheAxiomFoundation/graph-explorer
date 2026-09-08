@@ -32,9 +32,10 @@ generated its reference and both arms in one call. The reference is a shared
 modeling starting point, not an unconditional mixture. The difference between
 arm medians is not an identified causal effect or an effect uncertainty interval.
 
-The original review has four findings. The revised review retains three:
+The original review has four findings. The revised review has three distinct findings:
 unsupported nonpublic-student share, unsupported national extrapolation, and an
-arithmetic bridge that does not establish the final +0.1-point adjustment. Both
+arithmetic bridge that does not establish the final +0.1-point adjustment. This
+is a different set of findings, not evidence that one original issue was resolved. Both
 reviews have `review_basis=operator_assessment` and `outcome=issues_remaining`.
 The software review of Thesis does not endorse these forecast claims.
 
@@ -52,7 +53,7 @@ This is the publication added in Thesis PR #236. The publication timestamp is
 September 7, 2026 at 18:45:50 UTC, distinct from model execution and source capture.
 
 The committed input used here is
-[`examples/thesis-walkthrough-publication.json`](../examples/thesis-walkthrough-publication.json).
+[`examples/thesis-walkthrough-publication.json`](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/examples/thesis-walkthrough-publication.json).
 It retains the two complete native public detail projections and a reproducible
 validation inventory. Original source bodies, prompts, commands, code captures,
 raw responses, provider envelopes, reports and feedback are linked by their exact
@@ -75,6 +76,15 @@ Native payloads retain the exact local source and arm IDs. Semantic edges name
 their meaning: packet provision, source citation, reported output, reference
 adjustment, review and retrospective revision association remain separate.
 
+Response citation edges extract exact known source IDs from square brackets in
+`response.reference_reasoning` and `response.arms[].reasoning`, including
+comma-separated IDs such as `[naep-calendar, naep-framework]`. They do not infer
+citations from prose or mistake numerical intervals for source IDs. The original
+attempt has no recognized bracketed source IDs; this does **not** establish that
+it cited or used no sources. Its complete reasoning and supplied evidence remain
+available. Each forecast exposes the extraction rule, recognized IDs and this
+limitation in its record details.
+
 Each projected record includes its native field pointer where applicable:
 
 | Graph record | Native detail field |
@@ -90,7 +100,7 @@ Each projected record includes its native field pointer where applicable:
 | Source review | `reviews[index]` and its `record_artifact` |
 | Revision association | `revision_history[index]` and its `association_artifact` |
 
-The graph contains 44 nodes and 84 relationships. Its optional comparison graph
+The graph contains 44 nodes and 87 relationships. Its optional comparison graph
 contains the original-attempt subset: 37 nodes and 65 relationships. Both are
 projections of the **same later public publication**. The comparison does not
 claim that the subset was separately published earlier. Existing immutable nodes
@@ -100,7 +110,10 @@ The comparison node shows both native sets of quantiles.
 ## Reproduce the native checks
 
 Use a separate checkout of Thesis at the exact commit above, with its native
-Python dependencies installed. From the Orrery repository:
+Python dependencies installed. From the Orrery source checkout at
+`v0.5.0-preview.1`, run the
+[native replay script](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/examples/thesis-walkthrough-replay.py)
+and [projection tests](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/tests/thesis-walkthrough.test.ts):
 
 ```sh
 /path/to/thesis/.venv/bin/python examples/thesis-walkthrough-replay.py /path/to/thesis
@@ -115,6 +128,8 @@ the pinned Git commit and its manifest digest, and checks 34 referenced public
 artifacts by SHA-256 and byte length. It refuses a different native commit,
 modified native code, modified publication bytes, missing dependencies, bad CDFs,
 bad IDs, or broken revision closure. It changes no Thesis source or database.
+The npm package includes this guide; the fixture, projection, replay script and
+tests are available in the linked source checkout and are not included in the package.
 
 This is native **validation of recorded execution**, not a new model run or a
 replay of external inference. Passing it establishes internal agreement among
@@ -123,7 +138,7 @@ retrieval time, forecast correctness or receipt custody.
 
 ## Embed and export
 
-`examples/thesis-walkthrough.ts` exports:
+[`examples/thesis-walkthrough.ts`](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/examples/thesis-walkthrough.ts) exports:
 
 - `thesisWalkthrough`: current graph, validated with `parseGraphDocument`.
 - `thesisWalkthroughBaseline`: original-attempt comparison subset.
