@@ -45,6 +45,7 @@ interface GraphInspectorContext {
 interface GraphHostContext extends GraphInspectorContext {
   location: GraphLocation;
   setLocation: (location: GraphLocation, change?: GraphLocationChange) => void;
+  locateNode: (id: string) => boolean;
   visibleNodeIds: readonly string[];
   visibleEdgeIds: readonly string[];
 }
@@ -88,6 +89,10 @@ When the whole scene cannot fit at that readable scale, the camera frames the fo
 
 **Fit all** explicitly frames the entire current canvas, including very large scenes that require zoom below 0.04. **Focus view** returns to readable framing without changing selection or scope. **Locate** centers the selected record. The controls do not emit location callbacks. Whole graph changes exploration scope and keeps its existing `focus` intent.
 
+Version 0.4.3 exposes `GraphHostContext.locateNode(id)` to custom inspectors and toolbar controls. It frames a node already included in the current canvas and reveals Graph on mobile. Offscreen canvas nodes can be located. Selection, query, exploration focus, and the host URL remain unchanged; the method emits no location callback and does not infer a domain ancestor for the supplied ID.
+
+The method returns `true` when it accepts the camera request. Framing waits for the canvas's current dimensions, so this is not a completion signal. A missing node, a record excluded by the current canvas filters or collapse state, or a callback whose scene differs from the current scene returns `false` without changing state. It cannot restore excluded records or locate an edge; use `visibleNodeIds` to disable unavailable actions. A pending request can frame only its matching logical scene; returning to that identical scene can match again. This method belongs to `GraphHostContext`, not `GraphNodeRenderContext`.
+
 The camera is cached by graph geometry and exploration scope, separately from selection and index-only queries. Returning to a previous scope restores its camera; resizing preserves the world point under the viewport center and the zoom. Explicit camera controls and manual pan/zoom update that cached view. **Focus view** can reframe a focused scene for its new dimensions after a resize. A source-checkout regression fixture is at `examples/focus.html` with 18 synthetic records and custom card sizes.
 
 Version 0.4.0 preserves the normal Dagre layout. If the pinned Dagre ordering heuristic throws its known rectangle-intersection error or produces nonfinite geometry, the viewer retries once on a fresh graph with that heuristic disabled. The retry retains every supplied node, parallel edge, cycle, and explicit dimension. Invalid geometry or a failed retry raises an error for the host error boundary; records are never silently omitted to force a layout.
@@ -129,7 +134,7 @@ This React 18-compatible example uses synthetic records and explicitly exports t
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { parseGraphDocument, type GraphLocation } from '@axiom-foundation/graph-explorer';
-import { GraphExplorer, type GraphNodeRenderContext } from '@axiom-foundation/graph-explorer/react';
+import { GraphExplorer, type GraphHostContext, type GraphNodeRenderContext } from '@axiom-foundation/graph-explorer/react';
 import '@axiom-foundation/graph-explorer/style.css';
 
 const snapshot = parseGraphDocument({
@@ -146,12 +151,21 @@ function RecordCard({ node, focusNode }: GraphNodeRenderContext) {
   </>;
 }
 
+function Inspector({ node, visibleNodeIds, locateNode }: GraphHostContext) {
+  return <section className="ge-inspector-body">
+    <h2>{node?.label ?? 'Select a record'}</h2>
+    {node && <button type="button" disabled={!visibleNodeIds.includes(node.id)}
+      onClick={() => { locateNode(node.id); }}>Locate in graph</button>}
+  </section>;
+}
+
 function Host({ downloadJson }: { downloadJson: (json: string) => void }) {
   const [location, setLocation] = useState<GraphLocation>({});
   return <div style={{ height: '100dvh' }}>
     <GraphExplorer document={snapshot} location={location} onLocationChange={setLocation}
       searchFiltersCanvas={false}
       renderNodeContent={context => <RecordCard {...context} />}
+      renderInspector={context => <Inspector {...context} />}
       getNodeSize={() => ({ width: 260, height: 140 })}
       renderToolbar={({ location, setLocation }) => <button type="button"
         onClick={() => setLocation({ ...location, query: '', kinds: [] })}>Clear search</button>}

@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { webkit } from 'playwright';
+import { checkPackedHost } from './check-packed-host.mjs';
 
 // Test a real consumer artifact, never a Vite-transformed page or source import.
 // WebKit only: no Chrome profile, Chromium, or remote-debugging connection.
@@ -219,6 +220,11 @@ console.log(JSON.stringify({ react: version, productionRender: 'passed' }));
 `);
   report.productionReact = JSON.parse(run(process.execPath, ['production.mjs', input], consumer));
   report.checks.push('Installed public React entry renders under production React18');
+  await context.close(); context = undefined;
+  await browser.close(); browser = undefined; page = undefined;
+  report.stage = 'host Locate API';
+  report.hostEmbedding = await checkPackedHost({ root, consumer, runDirectory });
+  report.checks.push('Installed React18 host Locate works without navigation, including hidden mobile panes and rejected stale/excluded targets');
   report.status = 'passed';
   report.stage = 'complete';
 } catch (error) {

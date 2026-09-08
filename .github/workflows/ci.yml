@@ -36,6 +36,7 @@ jobs:
           name: packed-browser-evidence
           path: |
             output/playwright/packed-*/report.json
+            output/playwright/packed-*/host-report.json
             output/playwright/packed-*/*.png
           if-no-files-found: ignore
           retention-days: 14

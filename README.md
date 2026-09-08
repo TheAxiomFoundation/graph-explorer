@@ -37,7 +37,9 @@ To diagnose an existing candidate or reproduce a regression, supply its immutabl
 bun run check:browser --tarball /absolute/path/to/package.tgz
 ```
 
-Runs write `report.json` under a unique `output/playwright/packed-*` directory, with `desktop.png`, `mobile.png`, or `failure.png` when those browser captures are available. The report records the tested tarball's SHA-256 digest and, after export, the input graph and HTML digests, so results identify the exact artifact bytes. CI runs this gate after `check:dist` and retains the report and available screenshots for 14 days on success or failure. Its artifact upload includes only those evidence files; the temporary consumer and tarballs remain local to the run.
+The same installed consumer also builds a synthetic React 18 host through the public exports. WebKit checks custom inspector and toolbar Locate actions, unchanged navigation and host detail, hidden-pane resizing, and rejected excluded or stale-scene targets. `GraphHostContext.locateNode(id)` is available from 0.4.3; see [host camera controls](docs/react-hosts.md#focus-framing-and-camera).
+
+Runs write `report.json` and `host-report.json` under a unique `output/playwright/packed-*` directory, with browser screenshots when available. The reports record artifact and generated asset hashes so results identify the tested bytes. CI runs this gate after `check:dist` and retains those reports and screenshots for 14 days on success or failure. Its artifact upload includes only those evidence files; the temporary consumer and tarballs remain local to the run.
 
 ## Embed
 
@@ -99,7 +101,7 @@ Graph JSON cannot verify itself. Receipt references contain no executable config
 After building and packing this repository, install the tarball in a Node 20+ project. The installed CLI uses bundled assets and needs no Bun or source checkout:
 
 ```sh
-npm install /path/to/axiom-foundation-graph-explorer-0.4.2.tgz
+npm install /path/to/axiom-foundation-graph-explorer-0.4.3.tgz
 npx graph-explorer --input graph.json --output report.html
 ```
 

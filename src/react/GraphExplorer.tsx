@@ -33,6 +33,9 @@ export interface GraphLocationChange {
 
 export interface GraphHostContext extends GraphInspectorContext {
   location: GraphLocation;
+  /** Queue framing for a node in this canvas and open Graph, without navigation.
+   * Returns false for absent nodes or a stale scene; true means accepted. */
+  locateNode: (id: string) => boolean;
   /** Replace navigation state; use object spread when preserving existing fields. */
   setLocation: (location: GraphLocation, change?: GraphLocationChange) => void;
   visibleNodeIds: readonly string[];
@@ -356,6 +359,12 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     layout.edges.map(edge => [edge.id, edge.source, edge.target])]);
   const activeScene = useRef(sceneKey);
   activeScene.current = sceneKey;
+  const locateNode = useCallback((id: string) => {
+    if (activeScene.current !== sceneKey || !visibleIds.has(id)) return false;
+    setLocateTarget({ id, sceneKey });
+    setMobilePane('graph');
+    return true;
+  }, [sceneKey, visibleIds]);
   const cameraSize = useMemo(() => {
     const [width = 0, height = 0] = canvasSize.split('x').map(Number);
     return { width, height };
@@ -399,7 +408,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   const tabs: [InspectorTab, string][] = [['record', 'Record'], ['sources', 'Sources'], ['activity', 'Activity'], ['receipts', 'Receipts'], ['history', 'History']];
   const context: GraphHostContext = {
     document, node: selectedNode, edge: selectedEdge,
-    selectNode: id => select(id), selectEdge: id => select(id, 'edge'), focusNode: explore,
+    selectNode: id => select(id), selectEdge: id => select(id, 'edge'), focusNode: explore, locateNode,
     location, setLocation, visibleNodeIds: layout.nodes.map(node => node.id), visibleEdgeIds: layout.edges.map(edge => edge.id),
   };
   const exportProjection = async () => {
@@ -453,7 +462,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
       </main>
       <aside className="ge-inspector" aria-label="Selection inspector">{renderInspector ? renderInspector(context) : <><div className="ge-inspector-heading"><div className="ge-eyebrow">{selected ? `${selected.kind}${selectedType === 'edge' ? ' · relationship' : ''}` : 'Snapshot'}</div><h2>{selected?.label ?? (selectedEdge ? selectedEdge.kind : document.title)}</h2>{selected && <code className="ge-record-id">{selected.id}</code>}{removed && <Badge badge={{ label: 'Removed from this snapshot', tone: 'warning' }} />}{selected?.revision && <code className="ge-revision">Revision {selected.revision}</code>}
         {!!selected?.statuses?.length && <div className="ge-status-list">{selected.statuses.map((badge, i) => <Badge key={i} badge={badge} />)}</div>}
-        {selectedNode && !removed && <div className="ge-node-actions"><button type="button" onClick={() => explore(selectedNode.id)}>Explore neighbors</button><button type="button" disabled={!layout.nodes.some(node => node.id === selectedNode.id)} onClick={() => { setLocateTarget({ id: selectedNode.id, sceneKey }); setMobilePane('graph'); }}>Locate</button>{childCounts.has(selectedNode.id) && <button type="button" onClick={() => update({ collapsedIds: location.collapsedIds?.includes(selectedNode.id) ? location.collapsedIds.filter(id => id !== selectedNode.id) : [...location.collapsedIds ?? [], selectedNode.id] })}>{location.collapsedIds?.includes(selectedNode.id) ? 'Expand children' : 'Collapse children'}</button>}</div>}
+        {selectedNode && !removed && <div className="ge-node-actions"><button type="button" onClick={() => explore(selectedNode.id)}>Explore neighbors</button><button type="button" disabled={!visibleIds.has(selectedNode.id)} onClick={() => { locateNode(selectedNode.id); }}>Locate</button>{childCounts.has(selectedNode.id) && <button type="button" onClick={() => update({ collapsedIds: location.collapsedIds?.includes(selectedNode.id) ? location.collapsedIds.filter(id => id !== selectedNode.id) : [...location.collapsedIds ?? [], selectedNode.id] })}>{location.collapsedIds?.includes(selectedNode.id) ? 'Expand children' : 'Collapse children'}</button>}</div>}
       </div>
       <div className="ge-inspector-tabs" role="tablist" aria-label="Inspector sections">{tabs.map(([id, label], index) => <button type="button" role="tab" key={id} id={`${generatedId}-${id}-tab`} aria-controls={`${generatedId}-${id}-panel`} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)} onKeyDown={event => { if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' && event.key !== 'Home' && event.key !== 'End') return; event.preventDefault(); const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; setTab(tabs[next][0]); globalThis.document.getElementById(`${generatedId}-${tabs[next][0]}-tab`)?.focus(); }}>{label}</button>)}</div>
       <div className="ge-inspector-body" role="tabpanel" id={`${generatedId}-${tab}-panel`} aria-labelledby={`${generatedId}-${tab}-tab`} tabIndex={0}>

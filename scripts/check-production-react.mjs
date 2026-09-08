@@ -37,7 +37,7 @@ function assertHostContext(context) {
   assert.equal(context.location.query, 'no matching record');
   assert.deepEqual(context.visibleNodeIds, ['selected']);
   assert.deepEqual(context.visibleEdgeIds, []);
-  for (const method of ['selectNode', 'selectEdge', 'focusNode', 'setLocation']) {
+  for (const method of ['selectNode', 'selectEdge', 'focusNode', 'locateNode', 'setLocation']) {
     assert.equal(typeof context[method], 'function', `Host context must expose ${method}`);
   }
 }
@@ -106,6 +106,10 @@ renderToString(createElement(GraphExplorer, {
   },
 }));
 assert.ok(navigationContext, 'SSR must expose the navigation host context');
+assert.equal(navigationContext.locateNode('missing'), false, 'Locate refuses records absent from the canvas');
+assert.equal(navigationContext.locateNode('selected'), true, 'Locate accepts an existing canvas node');
+assert.equal(navigationCalls.length, 0, 'Locate must not emit a navigation callback');
+assert.deepEqual(initialNavigation, originalNavigation, 'Locate must not change controlled host state');
 function expectNavigation(action, next, reason) {
   const previousCount = navigationCalls.length;
   action();
