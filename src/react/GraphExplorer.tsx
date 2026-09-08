@@ -15,6 +15,7 @@ import { prepareGraphExport } from '../core/export-projection.js';
 import { canvasRecords, matchingRecords, nodeDimensions, type CanvasOptions } from './canvas.js';
 import { frameCamera, resizeCamera, type CameraSize } from './camera.js';
 import { RecordIndex } from './RecordIndex.js';
+import { updateNodeMeasurements, type NodeMeasurements } from './measurements.js';
 
 export interface GraphInspectorContext {
   document: GraphDocument;
@@ -230,6 +231,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   const depth = location.depth ?? 1;
   const showContainment = location.showContainment ?? true;
   const [ready, setReady] = useState(false);
+  const [measurements, setMeasurements] = useState<NodeMeasurements>(() => new Map());
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string>();
   const exportInFlight = useRef(false);
@@ -279,7 +281,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     setLocation({ ...locationRef.current, ...patch }, change);
   }, [setLocation]);
   const select = useCallback((id: string, type: 'node' | 'edge' = 'node') => { update({ selectedId: id, selectedType: type }, { reason: 'select' }); }, [update]);
-  const explore = (id: string, direction: GraphLocation['direction'] = 'both') => { update({ selectedId: id, selectedType: 'node', focusId: id, direction }, { reason: 'focus' }); };
+  const explore = useCallback((id: string, direction: GraphLocation['direction'] = 'both') => { update({ selectedId: id, selectedType: 'node', focusId: id, direction }, { reason: 'focus' }); }, [update]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -334,6 +336,18 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     });
     return { nodes, edges };
   }, [visibleNodes, relationships, positions, changes.nodes, childCounts, location.collapsedIds, nodesById]);
+  const visibleIds = useMemo(() => new Set(layout.nodes.map(node => node.id)), [layout.nodes]);
+  useEffect(() => { setMeasurements(previous => updateNodeMeasurements(previous, [], visibleIds)); }, [visibleIds]);
+  // XYFlow needs measured sizes echoed back for controlled nodes. A fresh node
+  // without `measured` clears its internal dimensions and edge handle bounds.
+  // Keep props stable through camera/resize renders and preserve measurements
+  // when selection, host content, or layout changes require new node objects.
+  const flowNodes = useMemo(() => layout.nodes.map(node => ({ ...node,
+    measured: measurements.get(node.id),
+    data: { ...node.data, context: { document, selectNode: (id: string) => select(id), selectEdge: (id: string) => select(id, 'edge'), focusNode: explore }, renderContent: renderNodeContent },
+    selected: selectedType === 'node' && node.id === selected?.id,
+  })), [layout.nodes, measurements, document, select, explore, renderNodeContent, selectedType, selected?.id]);
+  const flowEdges = useMemo(() => layout.edges.map(edge => ({ ...edge, selected: selectedType === 'edge' && edge.id === selected?.id })), [layout.edges, selectedType, selected?.id]);
   // Selection is deliberately absent: inspecting a record does not move the camera.
   // Geometry, rather than callback identity, also tracks host projection/sizing
   // changes. Index-only searches leave an unchanged business camera alone.
@@ -420,10 +434,10 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
       <main className="ge-main" aria-label="Graph canvas"><div className="ge-toolbar"><div className="ge-scope"><button type="button" className={!focus ? 'is-active' : ''} onClick={() => update({ focusId: undefined }, { reason: 'focus' })}>Whole graph</button>{focus && <span title={focus.label}>/ {focus.label}</span>}</div><div className="ge-toolbar-actions">{renderToolbar?.(context)}{exportOptions && <button type="button" disabled={exporting} aria-busy={exporting} onClick={() => { void exportProjection(); }}>{exporting ? 'Exporting…' : exportOptions.label ?? 'Export'}</button>}<>{automaticFrame?.focused && <button type="button" onClick={focusView}>Focus view</button>}<button type="button" onClick={fitAll}>Fit all</button></></div></div>
         {exportError && <p className="ge-export-error" role="alert">{exportError}</p>}
         <div className="ge-view-options">{focus ? <><div className="ge-direction" role="group" aria-label="Relationship direction">{(['both', 'upstream', 'downstream'] as const).map(direction => <button type="button" key={direction} aria-pressed={(location.direction ?? 'both') === direction} onClick={() => update({ direction })}>{direction === 'both' ? 'Lineage' : direction === 'upstream' ? 'Upstream' : 'Downstream'}</button>)}</div><label>Depth <select value={depth} onChange={event => update({ depth: Number(event.target.value) })}>{[1, 2, 3, 5, 10].map(value => <option key={value}>{value}</option>)}</select></label></> : <span className="ge-muted">Select to inspect · double-click to explore</span>}<label className="ge-containment"><input type="checkbox" checked={showContainment} onChange={event => update({ showContainment: event.target.checked })} />Containment</label></div>
-        <div className="ge-canvas" ref={canvasRef}><ReactFlow<CardNode, RelationEdge> nodes={layout.nodes.map(node => ({ ...node, data: { ...node.data, context: { document, selectNode: context.selectNode, selectEdge: context.selectEdge, focusNode: explore }, renderContent: renderNodeContent }, selected: selectedType === 'node' && node.id === selected?.id }))} edges={layout.edges.map(edge => ({ ...edge, selected: selectedType === 'edge' && edge.id === selected?.id }))}
+        <div className="ge-canvas" ref={canvasRef}><ReactFlow<CardNode, RelationEdge> nodes={flowNodes} edges={flowEdges}
           nodeTypes={nodeTypes} edgeTypes={edgeTypes} onInit={() => setReady(true)} nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null}
           onNodeClick={(_, node) => select(node.id)} onNodeDoubleClick={(_, node) => explore(node.id)} onEdgeClick={(_, edge) => select(edge.id, 'edge')}
-          onNodesChange={items => { const change = items.find(item => item.type === 'select' && item.selected); if (change?.type === 'select' && (selectedType !== 'node' || change.id !== selected?.id)) select(change.id); }}
+          onNodesChange={items => { setMeasurements(previous => updateNodeMeasurements(previous, items, visibleIds)); const change = items.find(item => item.type === 'select' && item.selected); if (change?.type === 'select' && (selectedType !== 'node' || change.id !== selected?.id)) select(change.id); }}
           onEdgesChange={items => { const change = items.find(item => item.type === 'select' && item.selected); if (change?.type === 'select' && (selectedType !== 'edge' || change.id !== selected?.id)) select(change.id, 'edge'); }}
           onMove={(_, viewport) => {
             // XYFlow defers move-end notifications and resolves the latest

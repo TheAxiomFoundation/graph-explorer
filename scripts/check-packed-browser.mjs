@@ -30,6 +30,14 @@ function run(command, commandArgs, cwd = root) {
   assert.equal(result.status, 0, `${command} failed: ${result.stderr || result.stdout}`);
   return result.stdout;
 }
+async function withDeadline(promise, milliseconds) {
+  let timer;
+  try {
+    return await Promise.race([promise, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Diagnostic deadline exceeded')), milliseconds);
+    })]);
+  } finally { clearTimeout(timer); }
+}
 let browser, context, page, server;
 try {
   let tarball;
@@ -108,27 +116,59 @@ try {
   await page.goto(url, { waitUntil: 'load' });
   assert.deepEqual(report.pageErrors, [], 'The emitted classic script must execute without errors');
   await page.getByRole('heading', { name: 'Packed browser fixture', exact: true, level: 1 }).waitFor();
-  await page.waitForFunction(() => document.querySelectorAll('.react-flow__node').length === 2 && document.querySelectorAll('.react-flow__edge').length === 1);
-  await page.waitForFunction(() => {
-    const canvas = document.querySelector('.ge-canvas').getBoundingClientRect();
-    return [...document.querySelectorAll('.react-flow__node')].every(node => {
-      const box = node.getBoundingClientRect();
-      return getComputedStyle(node).visibility === 'visible' && box.width > 0 && box.height > 0
-        && [box.x, box.y, box.width, box.height].every(Number.isFinite)
-        && box.left >= canvas.left - 1 && box.right <= canvas.right + 1
-        && box.top >= canvas.top - 1 && box.bottom <= canvas.bottom + 1;
+  async function assertRenderedGraph(fullyInside = true) {
+    report.stage = 'mounted graph';
+    await page.waitForFunction(() => document.querySelectorAll('.react-flow__node').length === 2 && document.querySelectorAll('.react-flow__edge').length === 1);
+    report.stage = 'visible graph geometry';
+    await page.waitForFunction(fullyInside => {
+      const canvas = document.querySelector('.ge-canvas').getBoundingClientRect();
+      return [...document.querySelectorAll('.react-flow__node')].every(node => {
+        const box = node.getBoundingClientRect();
+        return getComputedStyle(node).visibility === 'visible' && box.width > 0 && box.height > 0
+          && [box.x, box.y, box.width, box.height].every(Number.isFinite)
+          && (!fullyInside || (box.left >= canvas.left - 1 && box.right <= canvas.right + 1
+          && box.top >= canvas.top - 1 && box.bottom <= canvas.bottom + 1));
+      });
+    }, fullyInside);
+    report.stage = 'visible authored edge';
+    await page.waitForFunction(() => {
+      const edge = document.querySelector('.react-flow__edge-path');
+      if (!(edge instanceof SVGPathElement)) return false;
+      const style = getComputedStyle(edge);
+      return Boolean(edge.getAttribute('d')) && !/NaN|Infinity/.test(edge.getAttribute('d'))
+        && edge.getTotalLength() > 0 && style.visibility === 'visible' && style.stroke !== 'none' && Number(style.opacity) > 0;
     });
-  });
-  await page.waitForFunction(() => {
-    const edge = document.querySelector('.react-flow__edge-path');
-    if (!(edge instanceof SVGPathElement)) return false;
-    const style = getComputedStyle(edge);
-    return Boolean(edge.getAttribute('d')) && !/NaN|Infinity/.test(edge.getAttribute('d'))
-      && edge.getTotalLength() > 0 && style.visibility === 'visible' && style.stroke !== 'none' && Number(style.opacity) > 0;
-  });
+  }
+  await assertRenderedGraph();
   assert.equal(await page.locator('script[src], link[rel="stylesheet"][href]').count(), 0);
   assert.equal(await page.evaluate(() => globalThis.graphExplorerInjected), undefined);
   report.checks.push('Actual WebKit renders both nodes and the authored edge with inline assets and inert hostile text');
+  // Each load must render. These are independent assertions, never retries of
+  // a failed assertion; size changes exercise node measurement during mounting.
+  report.reloads = 20;
+  for (let attempt = 0; attempt < report.reloads; attempt++) {
+    const mode = attempt % 5;
+    await page.setViewportSize(mode === 1 ? { width: 390, height: 844 } : mode === 2 ? { width: 1600, height: 1050 } : mode === 3 ? { width: 640, height: 480 } : { width: 1440, height: 960 });
+    // Resize while React/XYFlow initialize, including the sequence that left
+    // style-sized nodes permanently hidden when measured sizes were discarded.
+    // Observe both failures immediately so a navigation rejection during resize
+    // still reaches our evidence capture and cleanup instead of escaping Node.
+    const results = await Promise.allSettled([
+      page.reload({ waitUntil: 'load' }),
+      (async () => {
+        if (mode === 4) {
+          await page.setViewportSize({ width: 390, height: 844 });
+          await page.setViewportSize({ width: 760, height: 600 });
+        }
+        await page.setViewportSize({ width: 1440, height: 960 });
+      })(),
+    ]);
+    for (const result of results) if (result.status === 'rejected') throw result.reason;
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await assertRenderedGraph();
+  }
+  report.checks.push('All 20 repeated loads and mounting resizes retain visible nodes and an authored edge');
+  report.stage = 'inspection and history';
 
   await page.locator('.ge-index-list').getByRole('button', { name: /Output record/ }).click();
   await page.locator('.ge-inspector').getByRole('heading', { name: 'Output record', exact: true }).waitFor();
@@ -139,19 +179,30 @@ try {
   await page.getByRole('tab', { name: 'History', exact: true }).click();
   await page.locator('.ge-inspector').getByText(/Earlier output record/).waitFor();
   report.checks.push('Selection updates inspector/URL, producer Receipt stays unverified, and baseline History renders');
+  await assertRenderedGraph();
   await page.screenshot({ path: join(runDirectory, 'desktop.png'), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
+  report.stage = 'mobile navigation';
   await page.getByRole('button', { name: 'Inspect', exact: true }).click();
   await page.locator('.ge-inspector').waitFor({ state: 'visible' });
   await page.getByRole('tab', { name: 'Record', exact: true }).click();
   await page.getByRole('button', { name: 'Explore neighbors', exact: true }).click();
   await page.locator('.ge-main').waitFor({ state: 'visible' });
   assert.equal(new URL(page.url()).hash.includes('focusId=output'), true);
+  await assertRenderedGraph(false);
+  // Focus framing applies after the newly revealed mobile canvas is measured.
+  // Wait for the requested record, not just offscreen-but-visible DOM nodes.
+  await page.waitForFunction(() => {
+    const canvas = document.querySelector('.ge-canvas').getBoundingClientRect();
+    const focus = document.querySelector('.react-flow__node[data-id="output"]').getBoundingClientRect();
+    return focus.left >= canvas.left - 1 && focus.right <= canvas.right + 1
+      && focus.top >= canvas.top - 1 && focus.bottom <= canvas.bottom + 1;
+  });
   await page.screenshot({ path: join(runDirectory, 'mobile.png'), fullPage: true });
   assert.deepEqual(report.pageErrors, []);
   assert.deepEqual(report.console, []);
-  assert.deepEqual(report.requests, [url], 'The entire browser interaction must require only the HTML document');
+  assert.deepEqual(report.requests, Array(1 + report.reloads).fill(url), 'The entire browser interaction must require only the HTML document');
   report.checks.push('Mobile Inspect/exploration works without browser errors, warnings, or additional network requests');
 
   // Actually render the public React entry in a production React18 host;
@@ -169,9 +220,16 @@ console.log(JSON.stringify({ react: version, productionRender: 'passed' }));
   report.productionReact = JSON.parse(run(process.execPath, ['production.mjs', input], consumer));
   report.checks.push('Installed public React entry renders under production React18');
   report.status = 'passed';
+  report.stage = 'complete';
 } catch (error) {
   report.status = 'failed';
   report.error = error instanceof Error ? error.message : String(error);
+  if (page) report.dom = await withDeadline(page.evaluate(() => ({
+    canvas: document.querySelector('.ge-canvas')?.getBoundingClientRect().toJSON(),
+    viewport: document.querySelector('.react-flow__viewport')?.getAttribute('style'),
+    nodes: [...document.querySelectorAll('.react-flow__node')].map(node => ({ id: node.getAttribute('data-id'), style: node.getAttribute('style'), visibility: getComputedStyle(node).visibility, rect: node.getBoundingClientRect().toJSON() })),
+    edges: [...document.querySelectorAll('.react-flow__edge-path')].map(edge => ({ path: edge.getAttribute('d'), visibility: getComputedStyle(edge).visibility, stroke: getComputedStyle(edge).stroke })),
+  })), 2_000).catch(() => undefined);
   if (page) await page.screenshot({ path: join(runDirectory, 'failure.png'), fullPage: true, timeout: 5_000 }).catch(() => {});
   process.exitCode = 1;
 } finally {

@@ -29,7 +29,7 @@ bunx playwright install webkit
 bun run check:browser
 ```
 
-The gate requires only [Playwright's WebKit browser](https://playwright.dev/docs/browsers#install-browsers), using the package version pinned in this repository. On Linux, `bunx playwright install --with-deps webkit` also installs its system dependencies; CI uses this command. The gate packs the built package, installs that tarball into a fresh React 18.3.1 consumer with lifecycle scripts disabled, and uses the installed CLI to export a synthetic graph and baseline. It serves the resulting HTML on localhost and checks rendering, selection, unchecked Receipt declarations, and revision comparison. Browser errors and external asset requests fail the check. It also renders the installed React entry in a fresh production Node process.
+The gate requires only [Playwright's WebKit browser](https://playwright.dev/docs/browsers#install-browsers), using the package version pinned in this repository. On Linux, `bunx playwright install --with-deps webkit` also installs its system dependencies; CI uses this command. The gate packs the built package, installs that tarball into a fresh React 18.3.1 consumer outside the checkout with lifecycle scripts disabled, and uses the installed CLI to export a synthetic graph and baseline. It serves the resulting HTML on localhost and checks visible nodes and edges through 20 repeated loads and mounting resizes, selection, unchecked Receipt declarations, revision comparison, and mobile navigation. Browser errors and external asset requests fail the check. It also renders the installed React entry in a fresh production Node process.
 
 To diagnose an existing candidate or reproduce a regression, supply its immutable tarball:
 
@@ -99,7 +99,7 @@ Graph JSON cannot verify itself. Receipt references contain no executable config
 After building and packing this repository, install the tarball in a Node 20+ project. The installed CLI uses bundled assets and needs no Bun or source checkout:
 
 ```sh
-npm install /path/to/axiom-foundation-graph-explorer-0.4.1.tgz
+npm install /path/to/axiom-foundation-graph-explorer-0.4.2.tgz
 npx graph-explorer --input graph.json --output report.html
 ```
 
@@ -117,7 +117,7 @@ The single HTML file bundles the viewer, styles, and supplied graph. It needs no
 
 Node hosts can import `exportGraphHtml` from `@axiom-foundation/graph-explorer/export` with `{ input, output, baseline?, assessment? }`. Inputs are local paths supplied by the host. Export validates the snapshot and any separately supplied assessment, hashes the exact source bytes, and refuses to overwrite input files or their aliases.
 
-Version 0.2.1 fixes two packaging failures in 0.1.0 and 0.2.0: the offline classic script retained a dependency's `import.meta.env`, and the React entry emitted a development-only JSX runtime that failed under `NODE_ENV=production`. Use 0.2.1 or later. After every build, `bun run check:dist` parses the actual exported classic script and renders the built React component in a fresh production Node process, including its host inspector and toolbar hooks. These checks complement browser interaction checks; importing a component alone does not test rendering.
+Version 0.2.1 fixed two packaging failures in 0.1.0 and 0.2.0: the offline classic script retained a dependency's `import.meta.env`, and the React entry emitted a development-only JSX runtime that failed under `NODE_ENV=production`. Version 0.4.2 also preserves React Flow's measured node sizes across rerenders, fixing an intermittent hidden canvas during initialization and resizing. Use 0.4.2 or later. After every build, `bun run check:dist` parses the actual exported classic script and renders the built React component in a fresh production Node process, including its host inspector and toolbar hooks. The packed browser gate then checks the installed artifact in WebKit; importing a component alone does not test rendering.
 
 ## Scope of this release
 
