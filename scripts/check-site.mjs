@@ -75,6 +75,59 @@ try {
   mark('Axiom compiled-artifact and Thesis source-replay examples remain available');
 
   const upload = page.getByLabel('Open a local graph JSON file');
+  // Hold real File.text() results so intent ordering is tested deterministically.
+  await page.evaluate(() => {
+    const nativeText = File.prototype.text;
+    globalThis.__orreryPendingReads = new Map();
+    File.prototype.text = async function () {
+      const text = await nativeText.call(this);
+      if (!this.name.startsWith('delayed-')) return text;
+      return new Promise(resolveRead => globalThis.__orreryPendingReads.set(this.name, () => resolveRead(text)));
+    };
+  });
+  const delayedGraph = title => ({ schemaVersion: 'graph-explorer/v1', id: title, title, nodes: [{ id: 'one', kind: 'fixture', label: title }], edges: [] });
+  const holdRead = async (name, bytes) => {
+    await upload.setInputFiles({ name, mimeType: 'application/json', buffer: Buffer.from(bytes) });
+    await page.waitForFunction(key => globalThis.__orreryPendingReads.has(key), name);
+  };
+  const releaseRead = async name => {
+    await page.evaluate(key => { globalThis.__orreryPendingReads.get(key)(); globalThis.__orreryPendingReads.delete(key); }, name);
+    await settled(page);
+  };
+  await holdRead('delayed-example.json', JSON.stringify(delayedGraph('Superseded by example')));
+  await page.selectOption('#example-picker', 'axiom');
+  const chosenExampleUrl = page.url();
+  await releaseRead('delayed-example.json');
+  assert.equal(await page.locator('#example-picker').inputValue(), 'axiom');
+  assert.equal(page.url(), chosenExampleUrl);
+  await holdRead('delayed-invalid.json', '{ invalid');
+  await page.selectOption('#example-picker', 'source');
+  await releaseRead('delayed-invalid.json');
+  assert.equal(await page.getByRole('alert').count(), 0);
+  mark('Delayed successful or invalid file reads cannot replace a newer example choice or its error state');
+
+  await holdRead('delayed-older.json', JSON.stringify(delayedGraph('Older import')));
+  await holdRead('delayed-newer.json', JSON.stringify(delayedGraph('Newer import')));
+  await releaseRead('delayed-older.json');
+  assert.equal(await page.getByRole('button', { name: /Opening/ }).isDisabled(), true);
+  assert.equal(await page.locator('#example-picker').inputValue(), 'source');
+  await releaseRead('delayed-newer.json');
+  await page.waitForFunction(() => document.querySelector('.ge-brand h1')?.textContent === 'Newer import');
+  assert.match(await page.locator('#example-picker').innerText(), /delayed-newer.json/);
+  mark('A newer import supersedes an older read; the old completion cannot clear the newer loading state');
+
+  await page.selectOption('#example-picker', 'axiom');
+  await page.selectOption('#example-picker', 'source');
+  await holdRead('delayed-history.json', JSON.stringify(delayedGraph('Superseded by history')));
+  await page.goBack();
+  await page.waitForFunction(() => document.querySelector('#example-picker')?.value === 'axiom');
+  const historyUrl = page.url();
+  await releaseRead('delayed-history.json');
+  assert.equal(await page.locator('#example-picker').inputValue(), 'axiom');
+  assert.equal(page.url(), historyUrl);
+  await page.selectOption('#example-picker', 'source');
+  mark('Browser history navigation cancels a pending file import without changing the restored URL');
+
   await upload.setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{ nope') });
   await page.getByRole('alert').waitFor();
   assert.match(await page.getByRole('alert').innerText(), /not valid JSON/);

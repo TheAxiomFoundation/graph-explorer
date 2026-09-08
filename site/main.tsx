@@ -1,4 +1,4 @@
-import { Component, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
+import { Component, useCallback, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GraphExplorer } from '../src/react';
 import { decodeLocation, encodeLocation, parseGraphDocument, prepareGraphExport } from '../src/core';
@@ -42,12 +42,19 @@ function App() {
   const workspace = useRef<HTMLElement>(null);
   const shellPromise = useRef<Promise<OfflineShell> | undefined>(undefined);
   const localSnapshots = useRef(new Map<string, { document: GraphDocument; name: string }>());
+  const importRequest = useRef(0);
+  const cancelPendingImport = useCallback(() => {
+    importRequest.current += 1;
+    setLoading(false);
+    if (fileInput.current) fileInput.current.value = '';
+  }, []);
   const current = imported ?? example.document;
   const baseline = imported ? undefined : example.baseline;
   const resetKey = `${localId ?? example.id}:${current.id}:${current.revision ?? ''}`;
 
   useEffect(() => {
     const sync = () => {
+      cancelPendingImport();
       const next = initialExample();
       // An imported graph exists only in this tab. History cannot fetch its bytes.
       if (new URLSearchParams(window.location.search).get('example') !== 'local') {
@@ -62,9 +69,10 @@ function App() {
     };
     window.addEventListener('popstate', sync); window.addEventListener('hashchange', sync);
     return () => { window.removeEventListener('popstate', sync); window.removeEventListener('hashchange', sync); };
-  }, [imported]);
+  }, [cancelPendingImport]);
 
   const navigate = (next: GraphLocation) => {
+    cancelPendingImport();
     const hash = encodeLocation(next);
     if (hash !== window.location.hash) {
       const onlyQueryChanged = encodeLocation({ ...next, query: undefined }) === encodeLocation({ ...location, query: undefined });
@@ -74,6 +82,7 @@ function App() {
   };
 
   const changeExample = (id: string) => {
+    cancelPendingImport();
     const next = examples.find(item => item.id === id) ?? examples[0];
     setExample(next); setImported(undefined); setLocalId(undefined); setError(''); setStatus(''); setLocation(next.location);
     const url = new URL(window.location.href); url.searchParams.set('example', next.id); url.hash = encodeLocation(next.location);
@@ -82,10 +91,13 @@ function App() {
 
   const importFile = async (file?: File) => {
     if (!file) return;
+    const request = ++importRequest.current;
     setError(''); setStatus(''); setLoading(true);
     try {
       if (file.size > MAX_FILE_BYTES) throw new Error('This file is larger than the 50 MB preview limit. Open a smaller graph projection.');
-      const graph = parseGraphDocument(JSON.parse(await file.text()));
+      const text = await file.text();
+      if (request !== importRequest.current) return;
+      const graph = parseGraphDocument(JSON.parse(text));
       // History survives reload; random keys prevent old entries aliasing new files.
       const nextLocalId = crypto.randomUUID();
       localSnapshots.current.set(nextLocalId, { document: graph, name: file.name });
@@ -95,9 +107,12 @@ function App() {
       setStatus(`Opened ${file.name} in this browser. Nothing was uploaded.`);
       workspace.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (cause) {
+      if (request !== importRequest.current) return;
       setError(cause instanceof SyntaxError ? 'This file is not valid JSON. Choose an Orrery GraphDocument JSON file.' : cause instanceof Error ? cause.message : 'This graph could not be opened.');
     } finally {
-      setLoading(false); if (fileInput.current) fileInput.current.value = '';
+      if (request === importRequest.current) {
+        setLoading(false); if (fileInput.current) fileInput.current.value = '';
+      }
     }
   };
 

@@ -36,6 +36,20 @@ jobs:
       - uses: actions/upload-pages-artifact@v4
         with:
           path: site-dist
+      - name: Skip superseded main revisions
+        id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          current_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [ "$current_sha" = "$TESTED_SHA" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping superseded revision $TESTED_SHA; main is $current_sha"
+          fi
       - name: Publish the tested preview
         id: deployment
+        if: steps.current.outputs.publish == 'true'
         uses: actions/deploy-pages@v4
