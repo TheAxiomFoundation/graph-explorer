@@ -9,7 +9,7 @@ Install the identified archive from a [GitHub release](https://github.com/TheAxi
 Do not assume a registry version exists before it is published.
 
 ```sh
-npm install https://github.com/TheAxiomFoundation/orrery/releases/download/v0.5.0-preview.1/axiom-foundation-orrery-0.5.0-preview.1.tgz
+npm install https://github.com/TheAxiomFoundation/orrery/releases/download/v0.5.0-preview.2/axiom-foundation-orrery-0.5.0-preview.2.tgz
 npx orrery --input graph.json --output report.html
 ```
 
@@ -36,13 +36,13 @@ the new archive explicitly:
 ```json
 {
   "dependencies": {
-    "@axiom-foundation/graph-explorer": "https://github.com/TheAxiomFoundation/orrery/releases/download/v0.5.0-preview.1/axiom-foundation-orrery-0.5.0-preview.1.tgz"
+    "@axiom-foundation/graph-explorer": "https://github.com/TheAxiomFoundation/orrery/releases/download/v0.5.0-preview.2/axiom-foundation-orrery-0.5.0-preview.2.tgz"
   }
 }
 ```
 
 After a registry publication, an npm alias is another option:
-`"@axiom-foundation/graph-explorer": "npm:@axiom-foundation/orrery@0.5.0-preview.1"`.
+`"@axiom-foundation/graph-explorer": "npm:@axiom-foundation/orrery@0.5.0-preview.2"`.
 The package also retains `graph-explorer` as a CLI alias. An old package name is
 not automatically redirected by npm; choose the dependency alias explicitly.
 

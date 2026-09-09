@@ -1,6 +1,6 @@
 # React host API
 
-`GraphExplorer` supports React 18 and 19 and requires a container with an explicit height. Import the combined package stylesheet once. The host owns its domain model, routing, calculations, and sharing policy; the viewer receives a validated `GraphDocument`. The exported interfaces are in [GraphExplorer.tsx](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.1/src/react/GraphExplorer.tsx).
+`GraphExplorer` supports React 18 and 19 and requires a container with an explicit height. Import the combined package stylesheet once. The host owns its domain model, routing, calculations, and sharing policy; the viewer receives a validated `GraphDocument`. The exported interfaces are in [GraphExplorer.tsx](https://github.com/TheAxiomFoundation/orrery/blob/v0.5.0-preview.2/src/react/GraphExplorer.tsx).
 
 ## Props
 
@@ -82,6 +82,8 @@ The canvas filter is absolute: focusing a host-excluded record does not put it o
 Version 0.4.0 renders at most 100 result buttons at once, with Previous records and Next records controls. Search and type filters still cover the complete supplied document. A new result set starts on the first page; initial selections and changed selections within the same result set reveal their matching page. Index page changes stay local: they do not emit navigation callbacks, alter scope/relationships, or move the graph camera. This bounds the index DOM, not the graph document, lineage work, or canvas node count; use `canvasNodeFilter` for the host's business canvas. Pagination does not redact exports.
 
 Version 0.4.6 compares kind-filter values as a set when retaining search results. A host may supply newly allocated arrays, reorder or repeat the same kinds, or interchange omitted and empty filters without resetting index paging or losing selected-row reveal. Kind matching remains case-sensitive, and the viewer preserves the original controlled location values. A changed filter value or document still creates a new result set; this does not require the host to stabilize array identity.
+
+Version 0.5.0-preview.2 ranks nonempty searches in three stable groups: exact label or ID matches; records with every query token in the label/ID; and remaining matches across kind, description, or stored data. Matching is case-insensitive and requires every whitespace-separated token, including tokens spread across fields. Exact ranking also ignores surrounding and repeated whitespace. No matches are dropped to improve rank, and records within each group retain document order. Empty searches retain the original document order. Ranking changes the index order only: canvas records keep their original order, and `searchFiltersCanvas={false}` preserves the canvas scope and camera during search.
 
 Host-requested pane changes commit before pending selected-row scrolling. If a mobile selection opens Inspect, the request remains pending until Browse returns or the viewport widens, then uses the current row sizes. Pane and size changes with no pending request preserve the user's scroll position.
 
