@@ -37,6 +37,19 @@ source records, baseline comparison, host projections, and offline HTML export.
 Application owners decide when to adopt a package and publish their own UI; shared
 package acceptance does not imply a host's deployment or default-viewer switch.
 
+Related host reviews, also open at this note's date:
+
+- [Microcosm exporter #888](https://github.com/PolicyEngine/microcosm/pull/888)
+  supplies the Microcosm-to-Orrery projection.
+- [Microcosm source consolidation #893](https://github.com/PolicyEngine/microcosm/pull/893)
+  is a draft bringing the US graph build and enrichment pipeline together; its
+  review guide separates component checks from outstanding release work.
+- [Microcosm methods and site #72](https://github.com/PolicyEngine/microcosm.institute/pull/72)
+  is the accompanying draft documentation review.
+
+These are source review links, not claims of a completed data release or a
+deployed host integration.
+
 ## Proposed next priorities
 
 ### Follow an explanation through the graph
