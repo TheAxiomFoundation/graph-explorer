@@ -114,6 +114,32 @@ try {
   const firstSelection = await page.locator('.ge-inspector-heading .ge-record-id').innerText();
   mark(`Mars is the neutral default with an approximate one-way answer, ${marsGraph.nodes.length} nodes and ${referencesChecked} matching captured-byte references`);
 
+  const emptyLocation = await context.newPage(); monitor(emptyLocation);
+  emptyLocation.setDefaultTimeout(10_000);
+  const focusedMars = new URLSearchParams({ selectedId: 'mars-signal/answer', selectedType: 'node', focusId: 'mars-signal/calculation' });
+  await emptyLocation.goto(`${url}?example=mars#${focusedMars}`); await canvasReady(emptyLocation);
+  await emptyLocation.getByRole('button', { name: 'Whole graph', exact: true }).click();
+  assert.equal(new URLSearchParams(new URL(emptyLocation.url()).hash.slice(1)).has('focusId'), false);
+  await emptyLocation.keyboard.press('Escape');
+  const assertEmptyLocation = async () => {
+    await emptyLocation.waitForFunction(() => window.location.href.endsWith('#')
+      && document.querySelectorAll('.ge-inspector-heading .ge-record-id').length === 0
+      && document.querySelectorAll('.react-flow__node').length === 10
+      && document.querySelectorAll('.react-flow__edge').length === 11);
+    await canvasReady(emptyLocation);
+    assert.equal(await emptyLocation.locator('#example-picker').inputValue(), 'mars');
+    assert.equal(await emptyLocation.getByRole('button', { name: 'Whole graph', exact: true }).getAttribute('class'), 'is-active');
+    assert.equal(await emptyLocation.locator('.ge-scope > span').count(), 0);
+    assert.deepEqual([...new URLSearchParams(new URL(emptyLocation.url()).hash.slice(1))], []);
+  };
+  await assertEmptyLocation();
+  await emptyLocation.reload(); await assertEmptyLocation();
+  await emptyLocation.goBack();
+  await emptyLocation.waitForFunction(() => document.querySelector('.ge-inspector-heading .ge-record-id')?.textContent === 'mars-signal/answer');
+  await emptyLocation.goForward(); await assertEmptyLocation();
+  mark('Whole graph and Escape create an explicit empty #; reload and Forward retain no focus or selection instead of restoring the Mars defaults');
+  await emptyLocation.close();
+
   await page.locator('.recorded-dates button[data-example="mars-comparison"]').focus();
   await page.keyboard.press('Enter'); await canvasReady(page);
   assert.equal(await page.locator('.recorded-dates button[data-example="mars-comparison"]').getAttribute('aria-pressed'), 'true');
@@ -321,6 +347,85 @@ try {
   assert.match(await offline.locator('.ge-inspector-body').innerText(), /Not verified/);
   await offline.screenshot({ path: join(output, 'offline.png'), animations: 'disabled' });
   mark('Actual downloaded file:// HTML uses the graph title safely and supports selection and unverified Receipt inspection without network assets');
+
+  // Read only the named public fixture; the site must import and export its full
+  // document even though its initial canvas is a much smaller value trace.
+  const lineageFixtureBytes = await readFile(join(root, 'examples/lineage-fixture.json'));
+  const lineageFixture = JSON.parse(lineageFixtureBytes);
+  assert.equal(lineageFixture.nodes.length, 13);
+  assert.equal(lineageFixture.edges.length, 11);
+  const lineage = await context.newPage(); monitor(lineage);
+  lineage.setDefaultTimeout(10_000);
+  const assertLineageView = async (target, nodeIds, edgeIds) => {
+    await target.waitForFunction(({ nodeIds, edgeIds }) => {
+      const ids = selector => [...document.querySelectorAll(selector)].map(element => element.getAttribute('data-id')).sort();
+      return JSON.stringify(ids('.react-flow__node')) === JSON.stringify([...nodeIds].sort())
+        && JSON.stringify(ids('.react-flow__edge')) === JSON.stringify([...edgeIds].sort());
+    }, { nodeIds, edgeIds });
+    await canvasReady(target);
+    await target.waitForFunction(() => [...document.querySelectorAll('.react-flow__node')].every(node => {
+      const rect = node.getBoundingClientRect();
+      return getComputedStyle(node).visibility === 'visible' && rect.width > 0 && rect.height > 0
+        && [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite);
+    }) && [...document.querySelectorAll('.react-flow__edge-path')].every(edge => edge.getAttribute('d') && !/NaN|Infinity/.test(edge.getAttribute('d'))));
+  };
+  const finalNodeIds = ['source-value', 'normalize', 'amount-normalized', 'transfer', 'amount-final'];
+  const finalEdgeIds = ['source-normalize', 'normalize-output', 'transfer-input', 'transfer-output'];
+  const normalizedNodeIds = ['source-value', 'normalize', 'amount-normalized'];
+  const normalizedEdgeIds = ['source-normalize', 'normalize-output'];
+  await lineage.goto(url); await canvasReady(lineage);
+  await lineage.getByLabel('Open a local graph JSON file').setInputFiles({ name: 'lineage-fixture.json', mimeType: 'application/json', buffer: lineageFixtureBytes });
+  await assertLineageView(lineage, finalNodeIds, finalEdgeIds);
+  assert.equal(await lineage.locator('#example-picker').inputValue(), 'local');
+  assert.equal(await lineage.getByLabel('Stage · Amount').inputValue(), 'selected');
+  assert.equal(await lineage.locator('.ge-inspector-heading .ge-record-id').innerText(), 'amount-final');
+  assert.equal(new URLSearchParams(new URL(lineage.url()).hash.slice(1)).get('traceVariableId'), 'amount');
+  const finalTraceUrl = lineage.url();
+  await lineage.getByLabel('Stage · Amount').selectOption('normalized');
+  await assertLineageView(lineage, normalizedNodeIds, normalizedEdgeIds);
+  assert.equal(new URLSearchParams(new URL(lineage.url()).hash.slice(1)).get('traceId'), 'amount-normalized');
+  await lineage.goBack(); await assertLineageView(lineage, finalNodeIds, finalEdgeIds);
+  assert.equal(lineage.url(), finalTraceUrl);
+  assert.equal(await lineage.getByLabel('Stage · Amount').inputValue(), 'selected');
+  mark('Local lineage import defaults to the first variable’s last authored stage: exact 5-node/4-edge trace; stage change and Back restore the trace');
+
+  const lineageJson = await downloadGraph(lineage, 'lineage-full.json');
+  assert.deepEqual(lineageJson, lineageFixture);
+  assert.equal(lineageJson.nodes.length, 13);
+  assert.equal(lineageJson.edges.length, 11);
+  assert.deepEqual(lineageJson.lineage, lineageFixture.lineage);
+  const lineageDownloadEvent = lineage.waitForEvent('download');
+  await lineage.getByRole('button', { name: /Save offline report/ }).click();
+  const lineageHtmlPath = join(output, 'lineage-report.html');
+  await (await lineageDownloadEvent).saveAs(lineageHtmlPath);
+  const lineageHtml = await readFile(lineageHtmlPath, 'utf8');
+  const lineageScripts = [...lineageHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
+  assert.equal(lineageScripts.length, 2);
+  const lineageEmbedded = lineageScripts.find(match => match[1].includes('application/json'));
+  assert.ok(lineageEmbedded, 'Downloaded lineage report must contain its graph payload');
+  const lineagePayload = JSON.parse(lineageEmbedded[2]);
+  assert.deepEqual(lineagePayload.document, lineageFixture);
+  assert.equal(lineagePayload.assessments, undefined);
+  assert.equal(lineagePayload.documentSha256, createHash('sha256').update(await readFile(join(output, 'lineage-full.json'))).digest('hex'));
+  for (const script of lineageScripts.filter(match => !match[1].includes('application/json'))) new Script(script[2]);
+  mark('Lineage JSON and offline exports retain the full 13-node/11-edge document and exact annotations; saved JSON bytes match the offline payload digest and classic scripts parse');
+
+  const lineageOffline = await context.newPage(); monitor(lineageOffline);
+  lineageOffline.setDefaultTimeout(10_000);
+  const lineageOfflineRequests = [];
+  lineageOffline.on('request', request => lineageOfflineRequests.push(request.url()));
+  await lineageOffline.goto(pathToFileURL(lineageHtmlPath).href);
+  await assertLineageView(lineageOffline, finalNodeIds, finalEdgeIds);
+  assert.equal(await lineageOffline.getByLabel('Stage · Amount').inputValue(), 'selected');
+  assert.equal(await lineageOffline.locator('.ge-inspector-heading .ge-record-id').innerText(), 'amount-final');
+  await lineageOffline.getByLabel('Stage · Amount').selectOption('normalized');
+  await assertLineageView(lineageOffline, normalizedNodeIds, normalizedEdgeIds);
+  await lineageOffline.goBack(); await assertLineageView(lineageOffline, finalNodeIds, finalEdgeIds);
+  assert.equal(lineageOfflineRequests.filter(request => /^https?:/.test(request)).length, 0);
+  assert.equal(await lineageOffline.locator('script[src], link[rel="stylesheet"]').count(), 0);
+  await lineageOffline.screenshot({ path: join(output, 'lineage-offline.png'), animations: 'disabled' });
+  mark('The actual downloaded lineage file:// report renders its default trace, supports stage changes and Back, and requests no network assets');
+  await lineageOffline.close(); await lineage.close();
 
   await page.reload(); await canvasReady(page);
   assert.match(await page.locator('.status-message').innerText(), /Open your graph JSON again/);

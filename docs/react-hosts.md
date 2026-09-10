@@ -30,6 +30,8 @@ All props are optional except `document`.
 
 `GraphLocation` contains `selectedId`, `selectedType` (`'node'` or `'edge'`), `focusId`, `direction` (`'both'`, `'upstream'`, or `'downstream'`), `depth`, `showContainment`, `query`, `kinds`, and `collapsedIds`; each is optional. Selection is distinct from exploration focus and does not move the camera. The host may use `encodeLocation`/`decodeLocation` or retain its own URL format and Back/Forward handling.
 
+The optional [value lineage extension](lineage.md) also uses `traceId`, `traceVariableId`, `traceControls`, and `traceContext`. Hosts opt into an initial trace with `getDefaultLineageLocation(document)`; controlled locations are never replaced automatically. Selection remains independent of the trace root. Trace mode respects `canvasNodeFilter` and reports hidden path records; it ignores ordinary record query/type/depth filters when choosing path nodes.
+
 ## Contexts and navigation
 
 ```ts

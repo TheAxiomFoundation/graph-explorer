@@ -83,6 +83,44 @@ export interface ReceiptRef {
   verifier?: string;
 }
 
+/** A host-authored entry point into a variable's existing native graph. */
+export interface GraphLineageStage {
+  id: string;
+  label: string;
+  /** Unique within this variable; the same native node may serve other variables. */
+  nodeId: string;
+}
+
+export interface GraphLineageVariable {
+  id: string;
+  label: string;
+  description?: string;
+  /** Authored presentation order, not an assertion of chronology or execution. */
+  stages: GraphLineageStage[];
+}
+
+export interface GraphLineageRelation {
+  edgeId: string;
+  /** Exact domain meaning remains on the referenced GraphEdge.kind. */
+  role: 'value' | 'control' | 'context';
+}
+
+export interface GraphLineageBoundary {
+  nodeId: string;
+  /** Both kinds stop traversal. A declared source is not a verification verdict. */
+  kind: 'source' | 'unknown';
+  description: string;
+}
+
+/** Optional precise lineage over native nodes/edges; unannotated edges are excluded. */
+export interface GraphLineage {
+  schemaVersion: 'orrery-lineage/v1';
+  /** Nonempty authored catalog; relations and boundaries may be incomplete. */
+  variables: GraphLineageVariable[];
+  relations: GraphLineageRelation[];
+  boundaries: GraphLineageBoundary[];
+}
+
 export interface GraphDocument {
   schemaVersion: 'graph-explorer/v1';
   id: string;
@@ -94,6 +132,7 @@ export interface GraphDocument {
   activities?: ActivityRecord[];
   artifacts?: ArtifactRef[];
   receipts?: ReceiptRef[];
+  lineage?: GraphLineage;
   metadata?: { [key: string]: JsonValue };
 }
 
@@ -127,4 +166,10 @@ export interface GraphLocation {
   query?: string;
   kinds?: string[];
   collapsedIds?: string[];
+  /** Native upstream trace root, independent of the inspected record. */
+  traceId?: string;
+  /** Optional variable choice when multiple authored variables share a root. */
+  traceVariableId?: string;
+  traceControls?: boolean;
+  traceContext?: boolean;
 }

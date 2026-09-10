@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GraphExplorer } from '../src/react';
-import { decodeLocation, encodeLocation, parseGraphDocument } from '../src/core';
+import { decodeLocation, encodeLocation, getDefaultLineageLocation, parseGraphDocument } from '../src/core';
 import type { GraphDocument, GraphLocation, ReceiptAssessment } from '../src/core';
 import { axiomExample, thesisExample } from './adapter-examples';
 import '@xyflow/react/dist/style.css';
@@ -31,9 +31,12 @@ const exampleFromUrl = () => new URLSearchParams(window.location.search).get('ex
 
 function App({ embedded }: { embedded?: SnapshotPayload }) {
   const [example, setExample] = useState(exampleFromUrl);
-  const [location, setLocation] = useState(() => decodeLocation(window.location.hash));
   const snapshot = embedded ?? { document: example === 'thesis' ? thesisExample : axiomExample };
+  const [location, setLocation] = useState(() => window.location.href.includes('#') ? decodeLocation(window.location.hash) : getDefaultLineageLocation(snapshot.document) ?? {});
   useEffect(() => {
+    // Make the initial trace a real history location. Later Whole graph links
+    // with an empty hash must remain whole-graph views on Back/Forward.
+    if (!window.location.hash && location.traceId) window.history.replaceState(null, '', encodeLocation(location));
     const sync = () => { setExample(exampleFromUrl()); setLocation(decodeLocation(window.location.hash)); };
     window.addEventListener('popstate', sync); window.addEventListener('hashchange', sync);
     return () => { window.removeEventListener('popstate', sync); window.removeEventListener('hashchange', sync); };

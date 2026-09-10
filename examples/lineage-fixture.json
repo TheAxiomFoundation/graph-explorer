@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "graph-explorer/v1",
+  "id": "illustrative-value-lineage",
+  "title": "Value lineage example",
+  "description": "An invented declaration for testing trace navigation; no calculation or execution is claimed.",
+  "revision": "fixture-v1",
+  "nodes": [
+    {"id": "source-value", "kind": "source", "label": "Source amount", "description": "Invented source record", "data": {"exampleOnly": true}},
+    {"id": "normalize", "kind": "transformation", "label": "Normalize amount", "description": "Illustrative transformation declaration; not an executed calculation."},
+    {"id": "amount-normalized", "kind": "value", "label": "Amount", "description": "Normalized stage", "data": {"stage": "Normalized", "exampleOnly": true}},
+    {"id": "transfer", "kind": "transfer", "label": "Transfer selected rows"},
+    {"id": "amount-final", "kind": "value", "label": "Amount", "description": "Selected rows stage", "data": {"stage": "Selected rows", "exampleOnly": true}},
+    {"id": "selection-source", "kind": "source", "label": "Selection input"},
+    {"id": "selection", "kind": "control", "label": "Eligible rows", "description": "Row selection controls which records are transferred."},
+    {"id": "operation", "kind": "operation", "label": "Whole operation", "description": "Broader operation context; its reads are not per-output value dependencies."},
+    {"id": "unrelated", "kind": "value", "label": "Unrelated input"},
+    {"id": "unmapped", "kind": "value", "label": "Unmapped amount", "description": "The producer has not supplied this value's mapping."},
+    {"id": "cycle-a", "kind": "value", "label": "Feedback value"},
+    {"id": "cycle-b", "kind": "transformation", "label": "Feedback step"},
+    {"id": "implicit-unknown", "kind": "value", "label": "Undeclared origin"}
+  ],
+  "edges": [
+    {"id": "source-normalize", "source": "source-value", "target": "normalize", "kind": "input value", "category": "dependency"},
+    {"id": "normalize-output", "source": "normalize", "target": "amount-normalized", "kind": "normalized value", "category": "dependency"},
+    {"id": "transfer-input", "source": "amount-normalized", "target": "transfer", "kind": "transferred value", "category": "dependency"},
+    {"id": "transfer-output", "source": "transfer", "target": "amount-final", "kind": "output value", "category": "dependency"},
+    {"id": "selection-input", "source": "selection-source", "target": "selection", "kind": "selection input", "category": "dependency"},
+    {"id": "selection-transfer", "source": "selection", "target": "transfer", "kind": "row selection", "category": "dependency"},
+    {"id": "operation-context", "source": "operation", "target": "transfer", "kind": "operation context", "category": "reference"},
+    {"id": "legacy-read", "source": "unrelated", "target": "operation", "kind": "declared read", "category": "dependency"},
+    {"id": "legacy-output", "source": "operation", "target": "amount-final", "kind": "produced", "category": "dependency"},
+    {"id": "cycle-ab", "source": "cycle-a", "target": "cycle-b", "kind": "feedback input", "category": "dependency"},
+    {"id": "cycle-ba", "source": "cycle-b", "target": "cycle-a", "kind": "feedback output", "category": "dependency"}
+  ],
+  "lineage": {
+    "schemaVersion": "orrery-lineage/v1",
+    "variables": [
+      {"id": "amount", "label": "Amount", "description": "Illustrative amount at two authored stages.", "stages": [{"id": "normalized", "label": "Normalized", "nodeId": "amount-normalized"}, {"id": "selected", "label": "Selected rows", "nodeId": "amount-final"}]},
+      {"id": "unmapped", "label": "Unmapped amount", "stages": [{"id": "unknown", "label": "Mapping not supplied", "nodeId": "unmapped"}]},
+      {"id": "feedback", "label": "Feedback value", "stages": [{"id": "feedback", "label": "Feedback", "nodeId": "cycle-a"}]},
+      {"id": "implicit-unknown", "label": "Undeclared origin", "stages": [{"id": "unknown", "label": "Origin not supplied", "nodeId": "implicit-unknown"}]}
+    ],
+    "relations": [
+      {"edgeId": "source-normalize", "role": "value"},
+      {"edgeId": "normalize-output", "role": "value"},
+      {"edgeId": "transfer-input", "role": "value"},
+      {"edgeId": "transfer-output", "role": "value"},
+      {"edgeId": "selection-input", "role": "value"},
+      {"edgeId": "selection-transfer", "role": "control"},
+      {"edgeId": "operation-context", "role": "context"},
+      {"edgeId": "cycle-ab", "role": "value"},
+      {"edgeId": "cycle-ba", "role": "value"}
+    ],
+    "boundaries": [
+      {"nodeId": "source-value", "kind": "source", "description": "Declared source boundary in an invented test fixture."},
+      {"nodeId": "selection-source", "kind": "source", "description": "Declared selection input in an invented test fixture."},
+      {"nodeId": "unmapped", "kind": "unknown", "description": "Per-output mapping has not been supplied."}
+    ]
+  }
+}
