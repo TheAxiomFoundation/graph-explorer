@@ -58,21 +58,23 @@ export function safeUrl(value: string): string | null {
 
 export function encodeLocation(location: GraphLocation): string {
   const p = new URLSearchParams();
-  for (const key of ['selectedId', 'selectedType', 'focusId', 'direction', 'query'] as const) if (location[key]) p.set(key, location[key]!);
+  for (const key of ['selectedId', 'selectedType', 'focusId', 'direction', 'query', 'traceId', 'traceVariableId'] as const) if (location[key]) p.set(key, location[key]!);
   if (location.kinds?.length) p.set('kinds', JSON.stringify(location.kinds));
   if (location.collapsedIds?.length) p.set('collapsedIds', JSON.stringify(location.collapsedIds));
   if (location.depth !== undefined) p.set('depth', String(location.depth));
   if (location.showContainment !== undefined) p.set('showContainment', String(location.showContainment));
+  for (const key of ['traceControls', 'traceContext'] as const) if (location[key] !== undefined) p.set(key, String(location[key]));
   return `#${p.toString()}`;
 }
 export function decodeLocation(hash: string): GraphLocation {
   const p = new URLSearchParams(hash.replace(/^#/, '')), result: GraphLocation = {};
-  for (const key of ['selectedId', 'focusId', 'query'] as const) if (p.get(key)) result[key] = p.get(key)!;
+  for (const key of ['selectedId', 'focusId', 'query', 'traceId', 'traceVariableId'] as const) if (p.get(key)) result[key] = p.get(key)!;
   if (p.get('selectedType') === 'node' || p.get('selectedType') === 'edge') result.selectedType = p.get('selectedType') as 'node'|'edge';
   if (['upstream','downstream','both'].includes(p.get('direction') ?? '')) result.direction = p.get('direction') as GraphLocation['direction'];
   const depth = Number(p.get('depth'));
   if (p.has('depth') && Number.isSafeInteger(depth) && depth >= 1 && depth <= 1000) result.depth = depth;
   if (p.get('showContainment') === 'true' || p.get('showContainment') === 'false') result.showContainment = p.get('showContainment') === 'true';
+  for (const key of ['traceControls', 'traceContext'] as const) if (p.get(key) === 'true' || p.get(key) === 'false') result[key] = p.get(key) === 'true';
   for (const key of ['kinds', 'collapsedIds'] as const) { try { const a = JSON.parse(p.get(key) ?? 'null'); if (Array.isArray(a) && a.every(x=>typeof x==='string')) result[key]=a; } catch { /* Invalid optional state does not prevent opening a graph. */ } }
   return result;
 }

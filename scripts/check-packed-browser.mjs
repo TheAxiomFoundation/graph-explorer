@@ -8,6 +8,10 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { webkit } from 'playwright';
 import { checkPackedHost } from './check-packed-host.mjs';
+import { checkPackedLineage } from './check-packed-lineage.mjs';
+import { checkLineageHost } from './check-lineage-host.mjs';
+
+if (process.platform === 'darwin') throw new Error('Run unattended browser QA in Linux CI; native macOS WebKit can surface windows on the active desktop.');
 
 // Test a real consumer artifact, never a Vite-transformed page or source import.
 // WebKit only: no Chrome profile, Chromium, or remote-debugging connection.
@@ -234,6 +238,11 @@ console.log(JSON.stringify({ react: version, productionRender: 'passed' }));
   report.stage = 'host Locate and index navigation';
   report.hostEmbedding = await checkPackedHost({ root, consumer, runDirectory });
   report.checks.push('Installed React18 host Locate and index selection work through mobile resizing and equivalent controlled filters without unintended navigation');
+  report.stage = 'value lineage navigation';
+  report.lineage = await checkPackedLineage({ root, consumer, runDirectory });
+  report.checks.push('Installed lineage annotations, controls, stages, gaps, cycles, history, and mobile navigation pass');
+  report.lineageHost = await checkLineageHost({ root, consumer, runDirectory });
+  report.checks.push('Controlled React18 lineage hosts preserve projection, exact inspection, and navigation intent');
   report.status = 'passed';
   report.stage = 'complete';
 } catch (error) {

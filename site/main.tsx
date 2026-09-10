@@ -1,7 +1,7 @@
 import { Component, useCallback, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GraphExplorer } from '../src/react';
-import { decodeLocation, encodeLocation, GraphValidationError, parseGraphDocument, prepareGraphExport } from '../src/core';
+import { decodeLocation, encodeLocation, getDefaultLineageLocation, GraphValidationError, parseGraphDocument, prepareGraphExport } from '../src/core';
 import type { GraphDocument, GraphLocation } from '../src/core';
 import { examples, type Example } from './examples';
 import { downloadFile, fileStem, makeOfflineReport, type OfflineShell } from './offline';
@@ -34,7 +34,7 @@ const canonicalizeLegacyExample = (example: Example) => {
 };
 const localFileRequested = () => new URLSearchParams(window.location.search).get('example') === 'local';
 const localFileReminder = 'Local files are not stored in links. Open your graph JSON again to restore this view.';
-const initialLocation = (example: Example) => localFileRequested() ? example.location : window.location.hash ? decodeLocation(window.location.hash) : example.location;
+const initialLocation = (example: Example) => localFileRequested() ? example.location : window.location.href.includes('#') ? decodeLocation(window.location.hash) : example.location;
 const shorten = (text: string, limit: number) => text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
 const shortenPath = (path: string) => path.length > 100 ? `${path.slice(0, 60)}…${path.slice(-39)}` : path;
 function importError(cause: unknown): string {
@@ -104,7 +104,7 @@ function App() {
         }
       }
       const isLocal = new URLSearchParams(window.location.search).get('example') === 'local';
-      setLocation(window.location.hash ? decodeLocation(window.location.hash) : isLocal ? {} : next.location);
+      setLocation(window.location.href.includes('#') ? decodeLocation(window.location.hash) : isLocal ? {} : next.location);
     };
     window.addEventListener('popstate', sync); window.addEventListener('hashchange', sync);
     if (localFileRequested() || (!new URLSearchParams(window.location.search).has('example') && window.location.hash)) sync();
@@ -146,8 +146,9 @@ function App() {
       localSnapshots.current.set(nextLocalId, { document: graph, name: file.name });
       while (localSnapshots.current.size > MAX_LOCAL_SNAPSHOTS) localSnapshots.current.delete(localSnapshots.current.keys().next().value!);
       setInspectorRequestKey(undefined);
-      setImported(graph); setImportedName(file.name); setLocation({}); setLocalId(nextLocalId);
-      const url = new URL(window.location.href); url.searchParams.set('example', 'local'); url.hash = '';
+      const nextLocation = getDefaultLineageLocation(graph) ?? {};
+      setImported(graph); setImportedName(file.name); setLocation(nextLocation); setLocalId(nextLocalId);
+      const url = new URL(window.location.href); url.searchParams.set('example', 'local'); url.hash = encodeLocation(nextLocation);
       window.history.pushState({ orreryLocalId: nextLocalId }, '', url);
       setStatus(`Opened ${file.name} in this browser. Nothing was uploaded.`);
       workspace.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });

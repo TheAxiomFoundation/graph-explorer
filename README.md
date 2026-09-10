@@ -52,7 +52,7 @@ bunx playwright install webkit
 bun run check:browser
 ```
 
-The gate requires only [Playwright's WebKit browser](https://playwright.dev/docs/browsers#install-browsers), using the package version pinned in this repository. On Linux, `bunx playwright install --with-deps webkit` also installs its system dependencies; CI uses this command. The gate packs the built package, installs that tarball into a fresh React 18.3.1 consumer outside the checkout with lifecycle scripts disabled, and uses the installed CLI to export a synthetic graph and baseline. It serves the resulting HTML on localhost and checks visible nodes and edges through 20 repeated loads and mounting resizes, selection, unchecked Receipt declarations, revision comparison, and mobile navigation. Browser errors and external asset requests fail the check. It also renders the installed React entry in a fresh production Node process.
+The gate requires only [Playwright's WebKit browser](https://playwright.dev/docs/browsers#install-browsers), using the package version pinned in this repository. Run unattended browser QA in Linux CI; native macOS WebKit has surfaced windows on the active desktop. On Linux, `bunx playwright install --with-deps webkit` also installs its system dependencies; CI uses this command. The gate packs the built package, installs that tarball into a fresh React 18.3.1 consumer outside the checkout with lifecycle scripts disabled, and uses the installed CLI to export a synthetic graph and baseline. It serves the resulting HTML on localhost and checks visible nodes and edges through 20 repeated loads and mounting resizes, selection, unchecked Receipt declarations, revision comparison, and mobile navigation. Browser errors and external asset requests fail the check. It also renders the installed React entry in a fresh production Node process.
 
 To diagnose an existing candidate or reproduce a regression, supply its immutable tarball:
 
@@ -112,6 +112,8 @@ The versioned contract is [src/core/types.ts](src/core/types.ts). A minimal grap
 `kind` carries the domain meaning; `category` helps present it. `parentId` denotes containment, not causality. Keep stable domain IDs across snapshots; use revision-scoped identities for locations such as array indices. Sources, independent status badges, exact stored fields, and original scope metadata survive projection. Encode integers beyond JavaScript's safe range as `{ "integer_literal": "18446744073709551615" }` before JavaScript parses them.
 
 Core exports include validation, adjacency indexes, directed upstream/downstream traversal, record/edge differences, safe links, and navigation serialization. Both-direction lineage is the union of ancestors and descendants; it does not collect unrelated sibling consumers merely because they share an input.
+
+For precise value dependencies, the optional [value lineage extension](docs/lineage.md) adds named variables, authored stages, and explicit value/control/context roles. The viewer follows only declared per-output edges and shows source boundaries, missing mappings, and cycles. Domain adapters own the mappings; Orrery does not infer them from operation fan-in.
 
 ## Agent activity and Receipt
 

@@ -92,6 +92,54 @@ export function validateGraphDocument(value: unknown): ValidationResult {
     if (!nodes.has(String(e.target))) issue(`${p}.target`, 'Unknown target node');
     if (e.category !== undefined && (typeof e.category !== 'string' || !['dependency', 'containment', 'evidence', 'provenance', 'reference'].includes(e.category))) issue(`${p}.category`, 'Unknown edge category');
   }
+  if (value.lineage !== undefined) {
+    const lineage = value.lineage;
+    if (!object(lineage)) issue('$.lineage', 'Expected a lineage object');
+    else {
+      if (lineage.schemaVersion !== 'orrery-lineage/v1') issue('$.lineage.schemaVersion', 'Unsupported lineage schema version');
+      const variableIds = new Set<string>(), relationIds = new Set<string>(), boundaryIds = new Set<string>();
+      const unique = (id: unknown, ids: Set<string>, path: string) => {
+        if (!text(id)) return;
+        if (ids.has(id)) issue(path, `Duplicate identity ${id}`);
+        ids.add(id);
+      };
+      const nodeRef = (id: unknown, path: string) => {
+        if (!text(id) || !nodes.has(id)) issue(path, 'Unknown lineage node');
+      };
+      const variables = arr(lineage, 'variables', '$.lineage', true);
+      if (!variables.length) issue('$.lineage.variables', 'A lineage annotation must have at least one variable');
+      variables.forEach((variable, index) => {
+        const p = `$.lineage.variables[${index}]`;
+        if (!object(variable)) return issue(p, 'Expected a variable object');
+        str(variable, 'id', p, true); str(variable, 'label', p, true); str(variable, 'description', p);
+        unique(variable.id, variableIds, `${p}.id`);
+        const stages = arr(variable, 'stages', p, true), stageIds = new Set<string>(), stageNodes = new Set<string>();
+        if (!stages.length) issue(`${p}.stages`, 'A lineage variable must have at least one stage');
+        stages.forEach((stage, stageIndex) => {
+          const sp = `${p}.stages[${stageIndex}]`;
+          if (!object(stage)) return issue(sp, 'Expected a stage object');
+          str(stage, 'id', sp, true); str(stage, 'label', sp, true);
+          unique(stage.id, stageIds, `${sp}.id`); nodeRef(stage.nodeId, `${sp}.nodeId`);
+          // Root node + variable identify the selected stage in portable navigation.
+          unique(stage.nodeId, stageNodes, `${sp}.nodeId`);
+        });
+      });
+      arr(lineage, 'relations', '$.lineage', true).forEach((relation, index) => {
+        const p = `$.lineage.relations[${index}]`;
+        if (!object(relation)) return issue(p, 'Expected a lineage relation');
+        if (!text(relation.edgeId) || !edges.has(relation.edgeId)) issue(`${p}.edgeId`, 'Unknown lineage edge');
+        unique(relation.edgeId, relationIds, `${p}.edgeId`);
+        if (typeof relation.role !== 'string' || !['value', 'control', 'context'].includes(relation.role)) issue(`${p}.role`, 'Unknown lineage role');
+      });
+      arr(lineage, 'boundaries', '$.lineage', true).forEach((boundary, index) => {
+        const p = `$.lineage.boundaries[${index}]`;
+        if (!object(boundary)) return issue(p, 'Expected a lineage boundary');
+        nodeRef(boundary.nodeId, `${p}.nodeId`); unique(boundary.nodeId, boundaryIds, `${p}.nodeId`);
+        str(boundary, 'description', p, true);
+        if (typeof boundary.kind !== 'string' || !['source', 'unknown'].includes(boundary.kind)) issue(`${p}.kind`, 'Unknown lineage boundary kind');
+      });
+    }
+  }
   // Validate the union of structural edges and parent pointers in linear time.
   // Semantic cycles remain legal; cyclic containment cannot be folded coherently.
   const containment = new Map<string, Set<string>>(), indegree = new Map([...nodes.keys()].map(id => [id, 0]));
@@ -162,8 +210,8 @@ export function parseGraphDocument(value: unknown): GraphDocument {
   if (!result.valid) throw new GraphValidationError(result.issues);
   // Strip extra top-level keys such as producer-supplied assessments or commands.
   const obj = value as GraphDocument;
-  const { schemaVersion, id, title, description, revision, nodes, edges, activities, artifacts, receipts, metadata } = obj;
-  return { schemaVersion, id, title, description, revision, nodes, edges, activities, artifacts, receipts, metadata };
+  const { schemaVersion, id, title, description, revision, nodes, edges, activities, artifacts, receipts, lineage, metadata } = obj;
+  return { schemaVersion, id, title, description, revision, nodes, edges, activities, artifacts, receipts, lineage, metadata };
 }
 
 /** Pure deterministic comparison encoding; deliberately not a cryptographic canonicalization. */

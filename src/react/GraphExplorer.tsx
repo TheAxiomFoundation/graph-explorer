@@ -15,6 +15,8 @@ import { prepareGraphExport } from '../core/export-projection.js';
 import { canvasRecords, matchingRecords, nodeDimensions, type CanvasOptions } from './canvas.js';
 import { frameCamera, resizeCamera, type CameraSize } from './camera.js';
 import { RecordIndex } from './RecordIndex.js';
+import { traceLineage } from '../core/lineage.js';
+import { lineageVariable, TraceDetails, VariableIndex } from './LineageControls.js';
 import { updateNodeMeasurements, type NodeMeasurements } from './measurements.js';
 
 export interface GraphInspectorContext {
@@ -90,7 +92,7 @@ export interface GraphExplorerProps extends CanvasOptions {
   onRevisionChange?: (revisionId: string) => void;
 }
 
-type CardData = { record: GraphNode; change?: string; childCount: number; collapsed: boolean; context?: GraphInspectorContext; renderContent?: GraphExplorerProps['renderNodeContent'] };
+type CardData = { record: GraphNode; change?: string; stageLabel?: string; lineageBoundary?: string; childCount: number; collapsed: boolean; context?: GraphInspectorContext; renderContent?: GraphExplorerProps['renderNodeContent'] };
 type CardNode = Node<CardData, 'record'>;
 type RelationEdge = Edge<{ record: GraphEdge; offset: number }, 'relation'>;
 type InspectorTab = 'record' | 'sources' | 'activity' | 'receipts' | 'history';
@@ -101,6 +103,11 @@ const useClientLayoutEffect = typeof window === 'undefined' ? useEffect : useLay
 
 function selectionKey(location: GraphLocation | undefined): string {
   return JSON.stringify(location?.selectedId ? [location.selectedId, location.selectedType ?? 'node'] : null);
+}
+
+function withoutTrace(location: GraphLocation): GraphLocation {
+  const { traceId: _root, traceVariableId: _variable, traceControls: _controls, traceContext: _context, ...rest } = location;
+  return rest;
 }
 
 /** Plain destinations only. Relative artifacts remain useful in offline reports. */
@@ -118,7 +125,9 @@ function RecordNode({ data, selected }: NodeProps<CardNode>) {
     <Handle type="target" position={Position.Left} />
     {data.renderContent && data.context ? data.renderContent({ ...data.context, node: data.record, selected: Boolean(selected), change: data.change, childCount: data.childCount, collapsed: data.collapsed }) : <><div className="ge-node-eyebrow"><span>{data.record.kind}</span>{data.change && <span className="ge-change">{data.change}</span>}</div>
     <strong title={data.record.label}>{data.record.label}</strong>
+    {data.stageLabel && <span className="ge-node-stage" title={data.stageLabel}>{data.stageLabel}</span>}
     <div className="ge-node-statuses">{data.record.statuses?.slice(0, 2).map((badge, i) => <Badge key={i} badge={badge} />)}
+      {data.lineageBoundary && <Badge badge={{ label: data.lineageBoundary, tone: data.lineageBoundary === 'Unknown lineage' ? 'warning' : 'neutral' }} />}
       {(data.record.statuses?.length ?? 0) > 2 && <span className="ge-more-status">+{data.record.statuses!.length - 2}</span>}
       {data.childCount > 0 && <span className="ge-child-count">{data.childCount} children{data.collapsed ? ' · collapsed' : ''}</span>}
     </div></>}
@@ -210,6 +219,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   const locationRef = useRef(location);
   locationRef.current = location;
   const [tab, setTab] = useState<InspectorTab>('record');
+  const [indexMode, setIndexMode] = useState<'variables' | 'records'>('variables');
   const [mobilePane, setMobilePane] = useState<'index' | 'graph' | 'inspector'>(inspectorRequestKey === undefined ? 'graph' : 'inspector');
   const controlledSelectionKey = selectionKey(controlledLocation);
   const observedSelection = useRef(controlledSelectionKey);
@@ -287,7 +297,12 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     setLocation({ ...locationRef.current, ...patch }, change);
   }, [setLocation]);
   const select = useCallback((id: string, type: 'node' | 'edge' = 'node') => { update({ selectedId: id, selectedType: type }, { reason: 'select' }); }, [update]);
-  const explore = useCallback((id: string, direction: GraphLocation['direction'] = 'both') => { update({ selectedId: id, selectedType: 'node', focusId: id, direction }, { reason: 'focus' }); }, [update]);
+  const explore = useCallback((id: string, direction: GraphLocation['direction'] = 'both') => { setLocation({ ...withoutTrace(locationRef.current), selectedId: id, selectedType: 'node', focusId: id, direction }, { reason: 'focus' }); }, [setLocation]);
+  const startTrace = useCallback((id: string, variableId?: string) => {
+    setIndexMode('variables');
+    update({ traceId: id, traceVariableId: variableId, selectedId: id, selectedType: 'node', focusId: undefined }, { reason: 'focus' });
+  }, [update]);
+  const wholeGraph = useCallback(() => setLocation({ ...withoutTrace(locationRef.current), focusId: undefined }, { reason: 'focus' }), [setLocation]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -307,14 +322,32 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   const kindFilterKey = JSON.stringify([...new Set(location.kinds ?? [])].sort());
   const matching = useMemo(() => matchingRecords(document, location), [document, location.query, kindFilterKey]);
   const canvasMatching = searchFiltersCanvas ? matching : document.nodes;
-  const visibleNodes = useMemo(() => canvasRecords(document, location, canvasMatching, childCounts, { canvasNodeFilter, searchFiltersCanvas }),
-    [document, canvasMatching, childCounts, location.collapsedIds, location.focusId, depth, showContainment, location.direction, canvasNodeFilter, searchFiltersCanvas]);
+  const tracing = location.traceId !== undefined;
+  const trace = useMemo(() => tracing ? traceLineage(document, location.traceId!, { includeControls: location.traceControls, includeContext: location.traceContext }) : undefined,
+    [document, tracing, location.traceId, location.traceControls, location.traceContext]);
+  const activeVariable = lineageVariable(document, location.traceId, location.traceVariableId);
+  const activeStage = activeVariable?.stages.find(stage => stage.nodeId === location.traceId);
+  const stageLabels = useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const variable of document.lineage?.variables ?? []) for (const stage of variable.stages) if (!labels.has(stage.nodeId) || variable.id === activeVariable?.id) labels.set(stage.nodeId, stage.label);
+    return labels;
+  }, [document.lineage, activeVariable?.id]);
+  const traceBoundaries = useMemo(() => new Map(trace?.boundaries.map(boundary => [boundary.nodeId, boundary.kind === 'source' ? 'Source boundary' : 'Unknown lineage'])), [trace]);
+  const lineageRoles = useMemo(() => new Map(document.lineage?.relations.map(relation => [relation.edgeId, relation.role])), [document.lineage]);
+  const visibleNodes = useMemo(() => {
+    if (trace) {
+      const ids = new Set(trace.nodeIds);
+      return document.nodes.filter(node => ids.has(node.id) && (!canvasNodeFilter || canvasNodeFilter(node, document)));
+    }
+    return canvasRecords(document, location, canvasMatching, childCounts, { canvasNodeFilter, searchFiltersCanvas });
+  }, [trace, document, canvasMatching, childCounts, location.collapsedIds, location.focusId, depth, showContainment, location.direction, canvasNodeFilter, searchFiltersCanvas]);
   const relationships = useMemo(() => {
     const ids = new Set(visibleNodes.map(node => node.id));
-    return document.edges.filter(edge => ids.has(edge.source) && ids.has(edge.target) && (showContainment || edge.category !== 'containment'));
-  }, [document.edges, visibleNodes, showContainment]);
+    const traceEdges = trace && new Set(trace.edgeIds);
+    return document.edges.filter(edge => ids.has(edge.source) && ids.has(edge.target) && (traceEdges ? traceEdges.has(edge.id) : showContainment || edge.category !== 'containment'));
+  }, [document.edges, visibleNodes, showContainment, trace]);
   const geometryKey = JSON.stringify({
-    nodes: visibleNodes.map(node => { const size = nodeDimensions(getNodeSize?.(node, document)); return [node.id, size.width, size.height]; }),
+    nodes: visibleNodes.map(node => { const size = nodeDimensions(getNodeSize?.(node, document) ?? (tracing && stageLabels.has(node.id) ? { width: 248, height: 148 } : undefined)); return [node.id, size.width, size.height]; }),
     edges: relationships.map(edge => [edge.id, edge.source, edge.target]),
   });
   // Host callbacks may be inline. Only a changed topology or dimensions should
@@ -330,7 +363,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     const nodes: CardNode[] = visibleNodes.map(record => {
       const point = positions.get(record.id)!;
       return { id: record.id, type: 'record', position: { x: point.x - point.width / 2, y: point.y - point.height / 2 },
-        data: { record, change: changes.nodes.get(record.id), childCount: childCounts.get(record.id)?.size ?? 0, collapsed: location.collapsedIds?.includes(record.id) ?? false },
+        data: { record, change: changes.nodes.get(record.id), stageLabel: tracing ? stageLabels.get(record.id) : undefined, lineageBoundary: traceBoundaries.get(record.id), childCount: childCounts.get(record.id)?.size ?? 0, collapsed: location.collapsedIds?.includes(record.id) ?? false },
         style: { width: point.width, height: point.height }, ariaLabel: `${record.label}, ${record.kind}${record.statuses?.map(status => `, ${status.label}`).join('') ?? ''}`, };
     });
     const pairs = new Map<string, GraphEdge[]>();
@@ -338,14 +371,15 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     const edges: RelationEdge[] = relationships.map(record => {
       const pair = pairs.get(JSON.stringify([record.source, record.target]))!;
       const offset = record.source === record.target ? pair.indexOf(record) * 48 : (pair.indexOf(record) - (pair.length - 1) / 2) * 54;
+      const role = tracing ? lineageRoles.get(record.id) : undefined;
       return { id: record.id, type: 'relation', source: record.source, target: record.target, label: record.kind,
-        data: { record, offset }, ariaLabel: `${nodesById.get(record.source)?.label}: ${record.kind}: ${nodesById.get(record.target)?.label}`,
+        data: { record, offset }, ariaLabel: `${nodesById.get(record.source)?.label}: ${record.kind}: ${nodesById.get(record.target)?.label}${role ? `, ${role} relationship` : ''}`,
         markerEnd: { type: MarkerType.ArrowClosed, color: '#839082', width: 14, height: 14 },
-        style: { stroke: '#839082', ...(record.category === 'containment' || record.category === 'reference' ? { strokeDasharray: '5 5' } : {}) },
+        style: { stroke: '#839082', ...(role === 'context' ? { strokeDasharray: '2 5' } : role === 'control' ? { strokeDasharray: '8 4' } : record.category === 'containment' || record.category === 'reference' ? { strokeDasharray: '5 5' } : {}) },
       };
     });
     return { nodes, edges };
-  }, [visibleNodes, relationships, positions, changes.nodes, childCounts, location.collapsedIds, nodesById]);
+  }, [visibleNodes, relationships, positions, changes.nodes, childCounts, location.collapsedIds, nodesById, tracing, stageLabels, traceBoundaries, lineageRoles]);
   const visibleIds = useMemo(() => new Set(layout.nodes.map(node => node.id)), [layout.nodes]);
   useEffect(() => { setMeasurements(previous => updateNodeMeasurements(previous, [], visibleIds)); }, [visibleIds]);
   // XYFlow needs measured sizes echoed back for controlled nodes. A fresh node
@@ -361,7 +395,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
   // Selection is deliberately absent: inspecting a record does not move the camera.
   // Geometry, rather than callback identity, also tracks host projection/sizing
   // changes. Index-only searches leave an unchanged business camera alone.
-  const sceneKey = JSON.stringify([document.id, document.revision, location.focusId, location.direction, depth, showContainment,
+  const sceneKey = JSON.stringify([document.id, document.revision, tracing ? [location.traceId, location.traceVariableId, location.traceControls, location.traceContext] : [location.focusId, location.direction, depth, showContainment],
     layout.nodes.map(node => [node.id, node.position.x, node.position.y, node.style?.width, node.style?.height]),
     layout.edges.map(edge => [edge.id, edge.source, edge.target])]);
   const activeScene = useRef(sceneKey);
@@ -382,7 +416,8 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     width: Number(node.style?.width), height: Number(node.style?.height) })), [sceneKey]);
   const cameraEdges = useMemo(() => layout.edges.map(edge => ({ source: edge.source, target: edge.target })), [sceneKey]);
   const overviewFrame = useMemo(() => frameCamera(cameraNodes, cameraEdges, cameraSize), [cameraNodes, cameraEdges, cameraSize]);
-  const automaticFrame = useMemo(() => frameCamera(cameraNodes, cameraEdges, cameraSize, location.focusId), [cameraNodes, cameraEdges, cameraSize, location.focusId]);
+  const cameraFocusId = tracing ? location.traceId : location.focusId;
+  const automaticFrame = useMemo(() => frameCamera(cameraNodes, cameraEdges, cameraSize, cameraFocusId), [cameraNodes, cameraEdges, cameraSize, cameraFocusId]);
   const applyCamera = useCallback((viewport: Viewport) => {
     const canvas = canvasRef.current;
     if (!canvas?.clientWidth || !canvas.clientHeight || canvas.clientWidth !== cameraSize.width || canvas.clientHeight !== cameraSize.height) return;
@@ -434,22 +469,24 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
     }
   };
 
-  return <div className={`ge-explorer ge-pane-${mobilePane}`} ref={shellRef} style={{ '--ge-instance': generatedId } as CSSProperties}>
+  return <div className={`ge-explorer ge-pane-${mobilePane}${document.lineage ? ' ge-has-lineage' : ''}`} ref={shellRef} style={{ '--ge-instance': generatedId } as CSSProperties}>
     <header className="ge-header"><div className="ge-brand"><span className="ge-mark" aria-hidden="true">◎</span><div><div className="ge-eyebrow">Orrery</div><h1>{document.title}</h1></div></div>
       <div className="ge-document-meta"><span>{document.nodes.length} records · {document.edges.length} relationships</span>{revisions?.length ? <label className="ge-revision-picker">Revision <select aria-label="Snapshot revision" value={currentRevisionId ?? ''} onChange={event => onRevisionChange?.(event.target.value)} disabled={!onRevisionChange}><option value="" disabled>Select revision</option>{revisions.map(revision => <option key={revision.id} value={revision.id}>{revision.label}</option>)}</select></label> : document.revision && <code title={document.revision}>{document.revision.length > 24 ? `${document.revision.slice(0, 21)}…` : document.revision}</code>}</div>
     </header>
     <nav className="ge-mobile-nav" aria-label="Workspace panels">{(['index', 'graph', 'inspector'] as const).map(pane => <button type="button" key={pane} aria-pressed={mobilePane === pane} onClick={() => setMobilePane(pane)}>{pane === 'index' ? 'Browse' : pane === 'inspector' ? 'Inspect' : 'Graph'}</button>)}</nav>
     <div className="ge-workspace">
-      <aside className="ge-index" aria-label="Record index"><div className="ge-index-search"><label htmlFor={`${generatedId}-search`}>Find a record <kbd>/</kbd></label><input ref={searchRef} id={`${generatedId}-search`} type="search" placeholder="Name, ID, or field…" value={location.query ?? ''} onChange={event => update({ query: event.target.value })} /></div>
+      <aside className="ge-index" aria-label="Record index">
+        {!!document.lineage?.variables.length && <div className="ge-index-modes" role="group" aria-label="Browse by">{(['variables', 'records'] as const).map(mode => <button type="button" key={mode} aria-pressed={indexMode === mode} onClick={() => setIndexMode(mode)}>{mode === 'variables' ? 'Variables' : 'Records'}</button>)}</div>}
+        {!!document.lineage?.variables.length && indexMode === 'variables' ? <VariableIndex document={document} rootId={location.traceId} variableId={location.traceVariableId} inputId={`${generatedId}-variable-search`} searchRef={searchRef} onTrace={startTrace} /> : <><div className="ge-index-search"><label htmlFor={`${generatedId}-search`}>Find a record <kbd>/</kbd></label><input ref={searchRef} id={`${generatedId}-search`} type="search" placeholder="Name, ID, or field…" value={location.query ?? ''} onChange={event => update({ query: event.target.value })} /></div>
         <div className="ge-kind-filter"><label htmlFor={`${generatedId}-kind`}>Record type</label><select id={`${generatedId}-kind`} value={location.kinds?.length === 1 ? location.kinds[0] : ''} onChange={event => update({ kinds: event.target.value ? [event.target.value] : [] })}><option value="">All types</option>{kinds.map(kind => <option key={kind}>{kind}</option>)}</select></div>
-        <div className="ge-index-count" aria-live="polite">{matching.length} records{focus && ' · full index'}</div>
+        <div className="ge-index-count" aria-live="polite">{matching.length} records{(focus || tracing) && ' · full index'}</div>
         <RecordIndex records={matching} selectedId={selectedType === 'node' ? selected?.id : undefined} changes={changes.nodes} onSelect={select} revealKey={mobilePane} />
         {baseline && <details className="ge-baseline-summary"><summary>Snapshot changes <span>{changes.nodes.size + changes.edges.size + changes.removedNodes.length + changes.removedEdges.length}</span></summary><p>{changes.nodes.size} added or changed records · {changes.edges.size} added or changed relationships</p>{changes.removedNodes.map(node => <button type="button" className="ge-text-button" key={node.id} onClick={() => { select(node.id); setTab('history'); }}>Removed: {node.label}</button>)}{changes.removedEdges.map(edge => <button type="button" className="ge-text-button" key={edge.id} onClick={() => { select(edge.id, 'edge'); setTab('history'); }}>Removed: {edge.label ?? edge.kind}</button>)}</details>}
-        <footer className="ge-index-footer">{document.description ?? 'Select a record to inspect its context.'}</footer>
+        <footer className="ge-index-footer">{document.description ?? 'Select a record to inspect its context.'}</footer></>}
       </aside>
-      <main className="ge-main" aria-label="Graph canvas"><div className="ge-toolbar"><div className="ge-scope"><button type="button" className={!focus ? 'is-active' : ''} onClick={() => update({ focusId: undefined }, { reason: 'focus' })}>Whole graph</button>{focus && <span title={focus.label}>/ {focus.label}</span>}</div><div className="ge-toolbar-actions">{renderToolbar?.(context)}{exportOptions && <button type="button" disabled={exporting} aria-busy={exporting} onClick={() => { void exportProjection(); }}>{exporting ? 'Exporting…' : exportOptions.label ?? 'Export'}</button>}<>{automaticFrame?.focused && <button type="button" onClick={focusView}>Focus view</button>}<button type="button" onClick={fitAll}>Fit all</button></></div></div>
+      <main className="ge-main" aria-label="Graph canvas"><div className="ge-toolbar"><div className="ge-scope"><button type="button" className={!focus && !tracing ? 'is-active' : ''} onClick={wholeGraph}>Whole graph</button>{tracing ? <span title={`${activeVariable?.label ?? nodesById.get(location.traceId!)?.label ?? location.traceId}${activeStage ? ` · ${activeStage.label}` : ''}`}>/ {activeVariable?.label ?? nodesById.get(location.traceId!)?.label ?? location.traceId}{activeStage && ` · ${activeStage.label}`}</span> : focus && <span title={focus.label}>/ {focus.label}</span>}</div><div className="ge-toolbar-actions">{renderToolbar?.(context)}{document.lineage && selectedNode && !removed && <button type="button" onClick={() => startTrace(selectedNode.id, lineageVariable(document, selectedNode.id, location.traceVariableId)?.id)}>Trace value</button>}{exportOptions && <button type="button" disabled={exporting} aria-busy={exporting} onClick={() => { void exportProjection(); }}>{exporting ? 'Exporting…' : exportOptions.label ?? 'Export'}</button>}<>{automaticFrame?.focused && <button type="button" onClick={focusView}>Focus view</button>}<button type="button" onClick={fitAll}>Fit all</button></></div></div>
         {exportError && <p className="ge-export-error" role="alert">{exportError}</p>}
-        <div className="ge-view-options">{focus ? <><div className="ge-direction" role="group" aria-label="Relationship direction">{(['both', 'upstream', 'downstream'] as const).map(direction => <button type="button" key={direction} aria-pressed={(location.direction ?? 'both') === direction} onClick={() => update({ direction })}>{direction === 'both' ? 'Lineage' : direction === 'upstream' ? 'Upstream' : 'Downstream'}</button>)}</div><label>Depth <select value={depth} onChange={event => update({ depth: Number(event.target.value) })}>{[1, 2, 3, 5, 10].map(value => <option key={value}>{value}</option>)}</select></label></> : <span className="ge-muted">Select to inspect · double-click to explore</span>}<label className="ge-containment"><input type="checkbox" checked={showContainment} onChange={event => update({ showContainment: event.target.checked })} />Containment</label></div>
+        {tracing ? <><div className="ge-view-options ge-trace-options"><strong>Value trace</strong><label><input type="checkbox" checked={location.traceControls ?? false} onChange={event => update({ traceControls: event.target.checked })} />Include controls</label><label><input type="checkbox" checked={location.traceContext ?? false} onChange={event => update({ traceContext: event.target.checked })} />Include context</label><span className="ge-muted">{location.traceContext ? 'Context is one hop; it is not a value dependency.' : `${trace?.excludedControlEdgeIds.length ?? 0} control relationships excluded`}</span></div>{trace && <TraceDetails trace={trace} document={document} hiddenCount={trace.nodeIds.length - visibleNodes.length} onSelect={select} />}</> : <div className="ge-view-options">{focus ? <><div className="ge-direction" role="group" aria-label="Relationship direction">{(['both', 'upstream', 'downstream'] as const).map(direction => <button type="button" key={direction} aria-pressed={(location.direction ?? 'both') === direction} onClick={() => update({ direction })}>{direction === 'both' ? 'Lineage' : direction === 'upstream' ? 'Upstream' : 'Downstream'}</button>)}</div><label>Depth <select value={depth} onChange={event => update({ depth: Number(event.target.value) })}>{[1, 2, 3, 5, 10].map(value => <option key={value}>{value}</option>)}</select></label></> : <span className="ge-muted">Select to inspect · double-click to explore</span>}<label className="ge-containment"><input type="checkbox" checked={showContainment} onChange={event => update({ showContainment: event.target.checked })} />Containment</label></div>}
         <div className="ge-canvas" ref={canvasRef}><ReactFlow<CardNode, RelationEdge> nodes={flowNodes} edges={flowEdges}
           nodeTypes={nodeTypes} edgeTypes={edgeTypes} onInit={() => setReady(true)} nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null}
           onNodeClick={(_, node) => select(node.id)} onNodeDoubleClick={(_, node) => explore(node.id)} onEdgeClick={(_, edge) => select(edge.id, 'edge')}
@@ -464,7 +501,7 @@ function Explorer({ document, baseline, assessments = EMPTY_ASSESSMENTS, documen
             if (applied?.sceneKey === sceneKey && applied.size === cameraSize && canvas?.clientWidth === cameraSize.width && canvas.clientHeight === cameraSize.height) viewports.current.set(sceneKey, { viewport, size: cameraSize });
           }} minZoom={Math.min(.04, automaticFrame?.viewport.zoom ?? .04, overviewFrame?.viewport.zoom ?? .04)} maxZoom={2} preventScrolling>
           <Background gap={24} size={1} color="#d6dbd1" /><Controls showInteractive={false} showFitView={false}><ControlButton onClick={fitAll} title="Fit all" aria-label="Fit all graph records"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" /></svg></ControlButton></Controls><MiniMap pannable zoomable nodeColor={node => node.selected ? '#4b6853' : '#c4cebe'} maskColor="rgba(241,243,235,.7)" />
-        </ReactFlow>{layout.nodes.length === 0 && <div className="ge-canvas-empty"><h2>No records in this view</h2><p>{canvasNodeFilter ? 'Records may be available in the index outside this canvas.' : 'Adjust the search or record type.'}</p><button type="button" onClick={() => update({ query: '', kinds: [], focusId: undefined, collapsedIds: [] })}>Reset view</button></div>}</div>
+        </ReactFlow>{layout.nodes.length === 0 && <div className="ge-canvas-empty"><h2>No records in this view</h2><p>{canvasNodeFilter ? 'Records may be available in the index outside this canvas.' : tracing ? 'Choose a variable or return to the whole graph.' : 'Adjust the search or record type.'}</p><button type="button" onClick={() => update({ query: '', kinds: [], focusId: undefined, collapsedIds: [], traceId: undefined, traceVariableId: undefined, traceControls: undefined, traceContext: undefined })}>Reset view</button></div>}</div>
         <footer className="ge-canvas-footer"><span>{layout.nodes.length} records · {layout.edges.length} relationships</span><span>{automaticFrame?.focused ? 'Pan to explore · Fit all for overview' : 'Direction follows the authored relationship'}</span></footer>
       </main>
       <aside className="ge-inspector" aria-label="Selection inspector">{renderInspector ? renderInspector(context) : <><div className="ge-inspector-heading"><div className="ge-eyebrow">{selected ? `${selected.kind}${selectedType === 'edge' ? ' · relationship' : ''}` : 'Snapshot'}</div><h2>{selected?.label ?? (selectedEdge ? selectedEdge.kind : document.title)}</h2>{selected && <code className="ge-record-id">{selected.id}</code>}{removed && <Badge badge={{ label: 'Removed from this snapshot', tone: 'warning' }} />}{selected?.revision && <code className="ge-revision">Revision {selected.revision}</code>}
