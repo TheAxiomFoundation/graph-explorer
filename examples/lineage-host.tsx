@@ -43,7 +43,7 @@ function App() {
   };
   const externalSelection = (id: string) => reflect({ ...locationRef.current, selectedId: id, selectedType: 'node' });
   return <main style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-    <nav aria-label="Synthetic host controls" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: 8 }}>
+    <nav aria-label="Synthetic host controls" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: 8, maxHeight: 108, overflowY: 'auto', flexShrink: 0, boxSizing: 'border-box' }}>
       <button type="button" onClick={() => externalSelection('normalize')}>Inspect hidden intermediate</button>
       <button type="button" onClick={() => externalSelection('amount-final')}>Inspect final value</button>
       <button type="button" onClick={() => externalSelection('operation')}>Inspect operation</button>

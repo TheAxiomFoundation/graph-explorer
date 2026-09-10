@@ -173,11 +173,15 @@ export async function checkLineageHost({ root, consumer, runDirectory }) {
       assert.ok((await variableState()).rows <= 100);
       await settle();
     };
-    const expectRevealed = () => page.waitForFunction(() => {
-      const list = document.querySelector('.ge-variable-list')?.getBoundingClientRect();
-      const row = document.querySelector('.ge-variable-list [aria-current="true"]')?.getBoundingClientRect();
-      return list && row && list.height > 0 && row.top >= list.top - 1 && row.bottom <= list.bottom + 1;
-    });
+    const expectRevealed = async () => {
+      report.predicate = 'Selected variable row fits fully inside the visible variable list';
+      await page.waitForFunction(() => {
+        const list = document.querySelector('.ge-variable-list')?.getBoundingClientRect();
+        const row = document.querySelector('.ge-variable-list [aria-current="true"]')?.getBoundingClientRect();
+        return list && row && list.height > 0 && row.top >= list.top - 1 && row.bottom <= list.bottom + 1;
+      });
+      delete report.predicate;
+    };
     const indexCallbacks = await output('Host callback count');
     await expectSets(['value-0'], []);
     await expectVariablePage('1–100 of 250 variables', 'variable-0');
@@ -207,6 +211,7 @@ export async function checkLineageHost({ root, consumer, runDirectory }) {
 
     report.stage = 'variable reveal from hidden mobile Browse and widening';
     await page.setViewportSize({ width: 390, height: 844 });
+    assert.ok((await page.getByRole('navigation', { name: 'Synthetic host controls', exact: true }).boundingBox()).height <= 108, 'Synthetic controls must leave space for the mobile viewer');
     await page.getByRole('button', { name: 'Inspect', exact: true }).click(); await pane('inspector');
     await page.getByRole('button', { name: 'Trace variable 149', exact: true }).click(); await pane('inspector');
     await page.getByRole('button', { name: 'Browse', exact: true }).click(); await pane('index');
@@ -224,7 +229,14 @@ export async function checkLineageHost({ root, consumer, runDirectory }) {
   } catch (error) {
     failure = error; report.status = 'failed'; report.error = error instanceof Error ? error.message : String(error);
     if (page) {
-      report.dom = await page.evaluate(() => ({ pane: document.querySelector('.ge-explorer')?.className, outputs: [...document.querySelectorAll('output')].map(node => ({ label: node.getAttribute('aria-label'), value: node.textContent })), canvas: document.querySelector('.ge-canvas')?.getBoundingClientRect().toJSON(), viewport: document.querySelector('.react-flow__viewport')?.getAttribute('style') })).catch(() => undefined);
+      report.dom = await page.evaluate(() => ({ pane: document.querySelector('.ge-explorer')?.className, outputs: [...document.querySelectorAll('output')].map(node => ({ label: node.getAttribute('aria-label'), value: node.textContent })), canvas: document.querySelector('.ge-canvas')?.getBoundingClientRect().toJSON(), viewport: document.querySelector('.react-flow__viewport')?.getAttribute('style'), variableIndex: {
+        page: document.querySelector('nav[aria-label="Variable index pages"]>span')?.textContent,
+        list: document.querySelector('.ge-variable-list')?.getBoundingClientRect().toJSON(),
+        selected: document.querySelector('.ge-variable-list [aria-current="true"]')?.getBoundingClientRect().toJSON(),
+        selectedId: document.querySelector('.ge-variable-list [aria-current="true"] small')?.textContent,
+        scroll: document.querySelector('.ge-variable-list')?.scrollTop,
+        rows: document.querySelectorAll('.ge-variable-list>button').length,
+      } })).catch(() => undefined);
       await page.screenshot({ path: join(runDirectory, 'lineage-host-failure.png'), fullPage: true, timeout: 5000 }).catch(() => {});
     }
   } finally {
